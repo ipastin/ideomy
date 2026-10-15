@@ -3,6 +3,26 @@ import { z } from "zod";
 const dateTime = z.iso.datetime({ offset: true });
 const object = z.record(z.string(), z.unknown());
 
+export const cliOutputSchema = z.strictObject({
+  schema_version: z.literal("1"),
+  command: z.string(),
+  ok: z.boolean(),
+  status: z.enum(["healthy", "degraded", "failed"]),
+  data: object,
+  diagnostics: z.array(
+    z.strictObject({
+      code: z.string().regex(/^[A-Z]+-\d{3}$/),
+      severity: z.enum(["info", "warning", "error", "fatal"]),
+      message: z.string(),
+      remediation: z.string(),
+      repairable: z.boolean(),
+    }),
+  ),
+  meta: z.strictObject({ cli_version: z.string() }),
+});
+
+export type CliDiagnostic = z.infer<typeof cliOutputSchema>["diagnostics"][number];
+
 export const protocolSchemas = {
   "handshake-request": z.strictObject({
     client_type: z.enum(["plugin", "cli"]),

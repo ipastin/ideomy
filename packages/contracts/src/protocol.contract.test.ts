@@ -4,7 +4,7 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { protocolSchemas } from "./index.js";
+import { cliOutputSchema, protocolSchemas } from "./index.js";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const read = (name: string) => JSON.parse(fs.readFileSync(path.join(root, name), "utf8"));
@@ -23,5 +23,33 @@ describe("Core protocol V1 contract adoption", () => {
     expect(seed(extra)).toBe(false);
     expect(generated(extra)).toBe(false);
     expect(runtime.safeParse(extra).success).toBe(false);
+  });
+});
+
+describe("CLI JSON V1 contract", () => {
+  it("accepts the canonical envelope and rejects malformed diagnostics", () => {
+    const validate = ajv.compile(z.toJSONSchema(cliOutputSchema));
+    const output = {
+      schema_version: "1",
+      command: "status",
+      ok: true,
+      status: "degraded",
+      data: {},
+      diagnostics: [
+        {
+          code: "DIST-001",
+          severity: "warning",
+          message: "Unavailable",
+          remediation: "Retry later",
+          repairable: false,
+        },
+      ],
+      meta: { cli_version: "0.0.0" },
+    };
+    expect(validate(output)).toBe(true);
+    expect(cliOutputSchema.safeParse(output).success).toBe(true);
+    const malformed = { ...output, diagnostics: [{ ...output.diagnostics[0], code: "unstable" }] };
+    expect(validate(malformed)).toBe(false);
+    expect(cliOutputSchema.safeParse(malformed).success).toBe(false);
   });
 });
