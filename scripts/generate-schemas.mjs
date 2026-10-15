@@ -28,4 +28,6 @@ for (const [name, schema] of Object.entries(protocolSchemas)) {
     `https://ideomy.local/protocol/v1/${name}.schema.json`,
   );
 }
-console.log("Generated 16 entity/base and 6 protocol JSON Schemas in dist/generated");
+console.log(
+  `Generated 16 entity/base and ${Object.keys(protocolSchemas).length} protocol JSON Schemas in dist/generated`,
+);

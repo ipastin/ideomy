@@ -24,6 +24,67 @@ export const cliOutputSchema = z.strictObject({
 export type CliDiagnostic = z.infer<typeof cliOutputSchema>["diagnostics"][number];
 
 export const protocolSchemas = {
+  health: z.strictObject({
+    ok: z.literal(true),
+    protocol: z.literal(1),
+    core_instance_id: z.string(),
+    status: z.literal("ready"),
+  }),
+  discovery: z.strictObject({
+    instance_id: z.string(),
+    protocol: z.literal(1),
+    port: z.number().int().min(1).max(65535),
+    pid: z.number().int().min(1),
+    started_at: dateTime,
+    vault_id: z.string(),
+  }),
+  "pair-request": z.strictObject({
+    client_instance_id: z.string(),
+    vault_id: z.string(),
+    vault_fingerprint: z.string(),
+    bootstrap_proof: z.string(),
+    public_key: z.strictObject({
+      kty: z.literal("EC"),
+      crv: z.literal("P-256"),
+      x: z.string(),
+      y: z.string(),
+    }),
+  }),
+  "pair-response": z.strictObject({ paired: z.literal(true) }),
+  "pair-window-request": z.strictObject({}),
+  "pair-window-response": z.strictObject({ bootstrap_proof: z.string(), expires_at: dateTime }),
+  "auth-challenge-request": z.strictObject({
+    client_instance_id: z.string(),
+    vault_id: z.string(),
+    vault_fingerprint: z.string(),
+  }),
+  "auth-challenge-response": z.strictObject({
+    nonce_id: z.string(),
+    nonce: z.string(),
+    expires_at: dateTime,
+  }),
+  "auth-session-request": z.discriminatedUnion("client_type", [
+    z.strictObject({
+      client_type: z.literal("plugin"),
+      client_instance_id: z.string(),
+      vault_id: z.string(),
+      vault_fingerprint: z.string(),
+      nonce_id: z.string(),
+      signature: z.string(),
+    }),
+    z.strictObject({
+      client_type: z.literal("cli"),
+      client_instance_id: z.string(),
+      vault_id: z.string(),
+      vault_fingerprint: z.string(),
+    }),
+  ]),
+  "auth-session-response": z.strictObject({
+    session_token: z.string(),
+    expires_at: dateTime,
+    core_instance_id: z.string(),
+    vault_id: z.string(),
+  }),
   "handshake-request": z.strictObject({
     client_type: z.enum(["plugin", "cli"]),
     client_version: z.string(),
@@ -89,3 +150,8 @@ export const protocolSchemas = {
     models: object.optional(),
   }),
 } as const;
+
+export type CoreDiscovery = z.infer<typeof protocolSchemas.discovery>;
+export type HandshakeRequest = z.infer<(typeof protocolSchemas)["handshake-request"]>;
+export type HandshakeResponse = z.infer<(typeof protocolSchemas)["handshake-response"]>;
+export type CoreErrorEnvelope = z.infer<(typeof protocolSchemas)["error-envelope"]>;

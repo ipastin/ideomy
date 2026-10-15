@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "paired": {
+      "type": "boolean",
+      "const": true
+    }
+  },
+  "required": [
+    "paired"
+  ],
+  "additionalProperties": false,
+  "$id": "https://ideomy.local/protocol/v1/pair-response.schema.json"
+}

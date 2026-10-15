@@ -1,0 +1,8 @@
+{
+  "instance_id": "core_01K7EXAMPLE000000000000",
+  "protocol": 1,
+  "port": 18421,
+  "pid": 12345,
+  "started_at": "2026-10-10T17:00:00+03:00",
+  "vault_id": "vault_01K7EXAMPLE0000000000000"
+}
