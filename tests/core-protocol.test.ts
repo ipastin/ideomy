@@ -1,4 +1,5 @@
-import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
+import { spawn } from "node:child_process";
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { protocolSchemas } from "@ideomy/contracts";
@@ -192,6 +193,44 @@ describe("M0.3 Core protocol", () => {
     }
   });
 
+  it("does not authenticate a Plugin when saving its pairing fails", () =>
+    withCore(async (core, directory) => {
+      const keyPair = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, false, [
+        "sign",
+        "verify",
+      ]);
+      const cli = new CoreClient(() => readCoreDiscovery(directory));
+      const plugin = new CoreClient(() => readCoreDiscovery(directory));
+      await cli.connectCli(identity("cli_failed_pair"), readCliAdminSecret(directory));
+      const proof = (await cli.openPairingWindow()).bootstrap_proof;
+      const blocker = path.join(directory, "paired-clients.json");
+      mkdirSync(blocker);
+      try {
+        await expect(plugin.pairPlugin(identity("plugin_failed_pair"), keyPair.publicKey, proof)).rejects.toMatchObject(
+          {
+            code: "CORE-500",
+          },
+        );
+        const challenge = await request(core, "/v1/auth/challenge", {
+          method: "POST",
+          headers: { "X-Ideomy-Client": "plugin" },
+          body: JSON.stringify({
+            client_instance_id: "plugin_failed_pair",
+            vault_id: vaultId,
+            vault_fingerprint: fingerprint,
+          }),
+        });
+        expect(challenge.status).toBe(401);
+        expect(readdirSync(directory).filter((name) => name.endsWith(".tmp"))).toEqual([]);
+      } finally {
+        rmSync(blocker, { recursive: true });
+      }
+      await plugin.pairPlugin(identity("plugin_failed_pair"), keyPair.publicKey, proof);
+      expect((await plugin.connectPlugin(identity("plugin_failed_pair"), keyPair.privateKey)).compatibility).toBe(
+        "compatible",
+      );
+    }));
+
   it("rejects challenge replay, revocation, and a mismatched protocol without exposing internals", () =>
     withCore(async (core, directory) => {
       const admin = readCliAdminSecret(directory);
@@ -279,7 +318,7 @@ describe("M0.3 Core protocol", () => {
     processCore.stderr.on("data", (chunk: Buffer) => errors.push(chunk));
     try {
       let discovery: ReturnType<typeof protocolSchemas.discovery.parse> | undefined;
-      for (let attempt = 0; attempt < 100 && !discovery; attempt++) {
+      for (let attempt = 0; attempt < 400 && !discovery; attempt++) {
         try {
           discovery = protocolSchemas.discovery.parse(readCoreDiscovery(directory));
         } catch {
@@ -294,7 +333,5 @@ describe("M0.3 Core protocol", () => {
       if (processCore.exitCode === null) await new Promise((resolve) => processCore.once("close", resolve));
       rmSync(directory, { recursive: true, force: true });
     }
-  });
+  }, 15_000);
 });
-
-import { spawn } from "node:child_process";

@@ -57,7 +57,12 @@ function writePrivateFile(directory: string, name: string, content: string): voi
   const target = path.join(directory, name);
   const temporary = `${target}.${randomBytes(8).toString("hex")}.tmp`;
   writeFileSync(temporary, content, { mode: 0o600, flag: "wx" });
-  renameSync(temporary, target);
+  try {
+    renameSync(temporary, target);
+  } catch (error) {
+    unlinkSync(temporary);
+    throw error;
+  }
 }
 
 function adminSecret(directory: string): string {
@@ -210,12 +215,17 @@ export async function startCore(options: CoreOptions): Promise<RunningCore> {
         } catch {
           return error(400, "CORE-400", "Invalid Plugin public key.");
         }
-        clients.set(data.client_instance_id, {
+        const paired = {
           vault_id: data.vault_id,
           vault_fingerprint: data.vault_fingerprint,
           public_key: data.public_key,
-        });
-        writePrivateFile(options.stateDirectory, "paired-clients.json", JSON.stringify(Object.fromEntries(clients)));
+        };
+        writePrivateFile(
+          options.stateDirectory,
+          "paired-clients.json",
+          JSON.stringify(Object.fromEntries(new Map([...clients, [data.client_instance_id, paired]]))),
+        );
+        clients.set(data.client_instance_id, paired);
         pairing = undefined;
         send(response, 200, protocolSchemas["pair-response"].parse({ paired: true }));
         return;
