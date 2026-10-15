@@ -247,3 +247,21 @@ export const entitySchemas = {
 } as const;
 
 export type ManagedEntityType = keyof typeof entitySchemas;
+
+export const typePrefixes: Record<ManagedEntityType, string> = {
+  area: "area",
+  project: "prj",
+  goal: "gol",
+  knowledge: "kn",
+  source: "src",
+  person: "per",
+  organization: "org",
+  decision: "dec",
+  meeting: "mtg",
+  event: "evt",
+  record: "rec",
+  asset: "ast",
+  place: "plc",
+  journal: "jrn",
+  system: "sys",
+};
