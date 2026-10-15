@@ -234,7 +234,10 @@ describe("Bootstrap Foundation", () => {
   it("resumes after Core start interruption without rewriting the Vault", async () => {
     const f = fixture();
     f.lifecycle.start.mockRejectedValueOnce(new Error("synthetic interruption"));
-    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).data.stage).toBe("START_CORE");
+    const interrupted = await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    expect(interrupted.data.stage).toBe("START_CORE");
+    expect(interrupted.diagnostics[0]?.code).toBe("CORE-503");
+    expect(interrupted.diagnostics[0]?.remediation).toContain("Rerun setup");
     writeFileSync(path.join(f.vault, "user.md"), "keep");
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("keep");

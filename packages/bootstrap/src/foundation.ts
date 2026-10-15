@@ -529,7 +529,16 @@ export async function setupFoundation(
       );
     complete(stage);
     stage = "START_CORE";
-    await lifecycle.start();
+    try {
+      await lifecycle.start();
+    } catch (error) {
+      throw new Failure(
+        "CORE-503",
+        "Core has not published a ready discovery.",
+        `${error instanceof Error ? error.message : "Inspect machine-local Core logs."} Rerun setup when Core is ready; use ideomy repair for a diagnosed stale lock.`,
+        90,
+      );
+    }
     complete(stage);
     stage = "VERIFY_HANDSHAKE";
     const connected = await connect(config);
