@@ -1,5 +1,6 @@
 import {
   chmodSync,
+  mkdirSync,
   mkdtempSync,
   readFileSync,
   realpathSync,
@@ -251,6 +252,31 @@ describe("M0.2 Vault I/O", () => {
         expect(events.at(-1)).toMatchObject({ kind: "change", path: "unreadable.md" });
       } finally {
         chmodSync(unreadable, 0o600);
+        watcher.close();
+      }
+    }));
+
+  it("keeps notes under an unreadable directory until access recovers", () =>
+    withSyntheticVault((root) => {
+      const blocked = path.join(root, "blocked");
+      mkdirSync(blocked);
+      const note = path.join(blocked, "note.md");
+      writeFileSync(note, "# Before\n");
+      const events: { kind: string; path: string; code?: string }[] = [];
+      const watcher = new VaultWatcher(root, (event) => events.push(event));
+      try {
+        chmodSync(blocked, 0o000);
+        expect(scanVault(root).diagnostics).toEqual([
+          { code: "VAULT-110", severity: "error", message: "Vault directory could not be read.", path: "blocked" },
+        ]);
+        watcher.reconcileAll();
+        expect(events).toEqual([{ kind: "error", path: "blocked", code: "VAULT-110" }]);
+        chmodSync(blocked, 0o700);
+        writeFileSync(note, "# After\n");
+        watcher.reconcileAll();
+        expect(events.at(-1)).toMatchObject({ kind: "change", path: path.join("blocked", "note.md") });
+      } finally {
+        chmodSync(blocked, 0o700);
         watcher.close();
       }
     }));

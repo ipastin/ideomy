@@ -1,4 +1,5 @@
 import { type FSWatcher, readFileSync, realpathSync, watch } from "node:fs";
+import path from "node:path";
 import { hashRaw, resolveVaultFile, scanVault, VaultError } from "./index.ts";
 
 export type VaultFileEvent = {
@@ -101,7 +102,10 @@ export class VaultWatcher {
     }
     for (const [relativePath, hash] of current) this.observe(relativePath, hash);
     for (const relativePath of this.known.keys()) {
-      if (!current.has(relativePath) && !unreadable.has(relativePath)) {
+      if (
+        !current.has(relativePath) &&
+        ![...unreadable].some((blocked) => relativePath === blocked || relativePath.startsWith(`${blocked}${path.sep}`))
+      ) {
         this.known.delete(relativePath);
         this.onEvent({ kind: "unlink", path: relativePath });
       }

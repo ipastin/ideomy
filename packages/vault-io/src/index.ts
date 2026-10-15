@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { readdirSync, readFileSync, realpathSync } from "node:fs";
+import { type Dirent, readdirSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 import { entitySchemas, type ManagedEntityType, typePrefixes } from "@ideomy/schema";
 import YAML, { isMap, isScalar } from "yaml";
@@ -210,9 +210,18 @@ export function scanVault(
   const diagnostics: VaultDiagnostic[] = [];
   const entriesById = new Map<string, { path: string; note: ParsedNote }[]>();
   const visit = (directory: string) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
-      a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
-    )) {
+    let entries: Dirent<string>[];
+    try {
+      entries = readdirSync(directory, { withFileTypes: true });
+    } catch (error) {
+      if (directory === resolvedRoot) throw error;
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT")
+        diagnostics.push(
+          issue("VAULT-110", "Vault directory could not be read.", path.relative(resolvedRoot, directory)),
+        );
+      return;
+    }
+    for (const entry of entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0))) {
       const absolute = path.join(directory, entry.name);
       const relative = path.relative(resolvedRoot, absolute);
       if (entry.isSymbolicLink()) {
