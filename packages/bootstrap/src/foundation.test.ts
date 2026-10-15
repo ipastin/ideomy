@@ -26,7 +26,7 @@ const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
-function fixture(vaultName = "Vault") {
+function fixture(vaultName = "Vault", registeredName = "Synthetic") {
   const root = mkdtempSync(path.join(realpathSync(tmpdir()), "ideomy-bootstrap-"));
   roots.push(root);
   const vault = path.join(root, vaultName);
@@ -46,14 +46,15 @@ function fixture(vaultName = "Vault") {
   let paired = true;
   let index = "current";
   const runObsidian = vi.fn((args: string[]) => {
-    if (args[0] === "vaults") return { ok: true, output: registered ? `Synthetic\t${vault}\n` : "" };
-    if (args[0] !== "vault=Synthetic") return { ok: false, output: "Vault not found." };
+    if (args[0] === "vaults") return { ok: true, output: registered ? `${registeredName}\t${vault}\n` : "" };
+    if (args[0] !== `vault=${registeredName}`) return { ok: false, output: "Vault not found." };
     if (args[1] === "plugins:restrict") return { ok: true, output: restricted ? "on" : "off" };
     if (args[1] === "plugin:enable" && restricted) return { ok: false, output: "Restricted mode is on." };
     if (args[1] === "plugin:enable") enabled = true;
     if (args[1] === "plugin:disable") enabled = false;
     return { ok: true, output: args[1] === "plugins:enabled" && enabled ? "ideomy\t0.0.1\n" : "" };
   });
+  const openVault = vi.fn(() => ({ ok: true, output: "" }));
   const lifecycle = {
     inspect: vi.fn(() => ({ state: "running" as const, pid: 123 })),
     start: vi.fn(async () => {
@@ -87,6 +88,7 @@ function fixture(vaultName = "Vault") {
     coreEntrypoint,
     templateDirectory,
     runObsidian,
+    openVault,
     lifecycle,
     client: client as unknown as CoreClient,
     environment: {
@@ -105,6 +107,7 @@ function fixture(vaultName = "Vault") {
     lifecycle,
     client,
     runObsidian,
+    openVault,
     stateDirectory,
     setRegistered: (value: boolean) => {
       registered = value;
@@ -123,6 +126,25 @@ function fixture(vaultName = "Vault") {
 const options = { mode: "new" as const, nonInteractive: true, yes: true, skipOpen: true, channel: "dev" };
 
 describe("Bootstrap Foundation", () => {
+  it("opens the registered Vault with the Obsidian URI after doctor passes", async () => {
+    const f = fixture("Vault", "Synthetic Vault");
+    const result = await setupFoundation({ ...options, vault: f.vault, skipOpen: false }, f.dependencies);
+    expect(result.data.stage).toBe("DONE");
+    expect(f.openVault).toHaveBeenCalledExactlyOnceWith("obsidian://open?vault=Synthetic%20Vault");
+    expect(f.runObsidian).not.toHaveBeenCalledWith(["vault=Synthetic Vault", "open"]);
+  });
+  it("resumes OPEN_VAULT when the URI launch fails without repeating Vault writes", async () => {
+    const f = fixture();
+    f.openVault.mockReturnValueOnce({ ok: false, output: "synthetic launch failure" });
+    expect((await setupFoundation({ ...options, vault: f.vault, skipOpen: false }, f.dependencies)).data.stage).toBe(
+      "OPEN_VAULT",
+    );
+    writeFileSync(path.join(f.vault, "user.md"), "keep");
+    expect((await setupFoundation({ ...options, vault: f.vault, skipOpen: false }, f.dependencies)).data.stage).toBe(
+      "DONE",
+    );
+    expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("keep");
+  });
   it("verifies the development Core runtime closure beyond its unchanged entrypoint", async () => {
     const f = fixture();
     const workspace = path.join(path.dirname(f.vault), "runtime");

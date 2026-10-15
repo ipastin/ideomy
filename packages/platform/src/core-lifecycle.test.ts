@@ -15,6 +15,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { type CoreProcessRuntime, MacosCoreLifecycle } from "./core-lifecycle.ts";
 import { readCoreProfile } from "./core-state.ts";
 
+vi.mock("node:timers/promises", () => ({ setTimeout: async () => {} }));
+
 const directories: string[] = [];
 afterEach(() => {
   for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
@@ -66,6 +68,25 @@ function fixture() {
 }
 
 describe("macOS Alpha Core lifecycle", () => {
+  it("allows initial indexing to finish after the previous thirty-second startup window", async () => {
+    const f = fixture();
+    vi.mocked(f.runtime.launch).mockImplementation(async () => {
+      f.setLive(true);
+      writeFileSync(f.lock, "12345", { mode: 0o600 });
+    });
+    let probes = 0;
+    vi.mocked(f.runtime.owns).mockImplementation(() => {
+      if (++probes === 700) f.writeState();
+      return true;
+    });
+    expect(await f.adapter.start()).toEqual({ state: "running", pid: 12345 });
+    expect(probes).toBeGreaterThan(600);
+  });
+  it("reports an early Core exit without waiting for the indexing timeout", async () => {
+    const f = fixture();
+    vi.mocked(f.runtime.launch).mockImplementation(async () => {});
+    await expect(f.adapter.start()).rejects.toThrow("exited before publishing discovery");
+  });
   it("starts idempotently, restarts and stops using the same private state", async () => {
     const { adapter, runtime, directory } = fixture();
     expect(adapter.inspect()).toEqual({ state: "stopped" });

@@ -140,16 +140,20 @@ export class MacosCoreLifecycle {
       closeSync(log);
     }
     // Core validates and indexes the Vault before publishing discovery.
-    for (let attempt = 0; attempt < 600; attempt++) {
+    for (let attempt = 0; attempt < 2400; attempt++) {
       const state = this.inspect();
       if (state.state === "running") {
         this.refreshPluginConnection();
         return state;
       }
       if (state.state === "stale") break;
+      if (state.state === "stopped" && attempt >= 100)
+        throw new Error("Core exited before publishing discovery; inspect machine-local Core logs.");
       await delay(50);
     }
-    throw new Error("Core did not become ready; inspect machine-local Core logs.");
+    throw new Error(
+      "Core did not become ready within two minutes; inspect machine-local Core logs and rerun setup after indexing completes.",
+    );
   }
 
   async stop(): Promise<CoreProcessState> {

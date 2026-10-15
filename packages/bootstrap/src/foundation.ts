@@ -48,6 +48,7 @@ export type FoundationDependencies = {
   environment?: EnvironmentSnapshot;
   lifecycle?: Lifecycle;
   runObsidian?: (args: string[]) => { ok: boolean; output: string };
+  openVault?: (uri: string) => { ok: boolean; output: string };
   client?: CoreClient;
   vault?: string;
 };
@@ -201,6 +202,12 @@ function settings(input: FoundationDependencies) {
           output: result.stdout ?? "",
         };
       }),
+    openVault:
+      input.openVault ??
+      ((uri: string) => {
+        const result = spawnSync("/usr/bin/open", [uri], { encoding: "utf8", timeout: 15_000 });
+        return { ok: result.status === 0, output: result.stderr ?? "" };
+      }),
   };
 }
 function writable(root: string): void {
@@ -241,7 +248,7 @@ function copyStarter(source: string, target: string): void {
       );
   }
 }
-function vaultCommand(run: ReturnType<typeof settings>["runObsidian"], root: string, args: string[]) {
+function registeredVaultName(run: ReturnType<typeof settings>["runObsidian"], root: string): string {
   const vaults = run(["vaults", "verbose"]);
   const entry = vaults.output
     .split(/\r?\n/)
@@ -253,14 +260,17 @@ function vaultCommand(run: ReturnType<typeof settings>["runObsidian"], root: str
         return false;
       }
     });
-  if (!vaults.ok || !entry)
+  if (!vaults.ok || !entry?.[0])
     throw new Failure(
       "OBS-004",
       "Selected Vault is not registered in Obsidian.",
       `In Obsidian choose Open folder as vault and select ${root}, then rerun the same setup command.`,
       10,
     );
-  return run([`vault=${entry[0]}`, ...args]);
+  return entry[0];
+}
+function vaultCommand(run: ReturnType<typeof settings>["runObsidian"], root: string, args: string[]) {
+  return run([`vault=${registeredVaultName(run, root)}`, ...args]);
 }
 function enabled(run: ReturnType<typeof settings>["runObsidian"], root: string, version: string): boolean {
   const result = vaultCommand(run, root, ["plugins:enabled", "filter=community", "versions"]);
@@ -621,7 +631,10 @@ export async function setupFoundation(
       );
     complete(stage);
     stage = "OPEN_VAULT";
-    if (!options.skipOpen && !vaultCommand(config.runObsidian, root, ["open"]).ok)
+    if (
+      !options.skipOpen &&
+      !config.openVault(`obsidian://open?vault=${encodeURIComponent(registeredVaultName(config.runObsidian, root))}`).ok
+    )
       throw new Failure(
         "OBS-004",
         "Obsidian could not open the selected Vault.",

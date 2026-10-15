@@ -101,16 +101,6 @@ export class PluginConnection {
         }
       }
       if (this.state.state !== "connected") this.update({ state: "connecting", message: "Connecting to Core…" });
-      const local = await this.store.identity(
-        `${this.scope}:${checked.discovery.vault_id}:${checked.vaultFingerprint}`,
-      );
-      if (!current()) return;
-      const identity = {
-        vaultId: checked.discovery.vault_id,
-        vaultFingerprint: checked.vaultFingerprint,
-        clientInstanceId: local.clientInstanceId,
-        clientVersion: this.version,
-      };
       // Native fetch must not receive PluginConnection as its `this` value.
       const transport = this.transport;
       const client = new CoreClient(
@@ -121,6 +111,29 @@ export class PluginConnection {
             signal: init?.signal ? AbortSignal.any([init.signal, this.abort.signal]) : this.abort.signal,
           }),
       );
+      const cached = this.state.state === "connected" ? this.state.handshake : undefined;
+      if (
+        !proof &&
+        cached?.core_instance_id === checked.discovery.instance_id &&
+        cached.vault_id === checked.discovery.vault_id &&
+        cached.vault_fingerprint === checked.vaultFingerprint &&
+        Date.parse(cached.session_expires_at ?? "") > Date.now() + 60_000
+      ) {
+        await client.health();
+        if (!current()) return;
+        if (discovered !== undefined) await this.store.write(`connection:${this.scope}`, checked);
+        return;
+      }
+      const local = await this.store.identity(
+        `${this.scope}:${checked.discovery.vault_id}:${checked.vaultFingerprint}`,
+      );
+      if (!current()) return;
+      const identity = {
+        vaultId: checked.discovery.vault_id,
+        vaultFingerprint: checked.vaultFingerprint,
+        clientInstanceId: local.clientInstanceId,
+        clientVersion: this.version,
+      };
       if (proof) {
         await client.pairPlugin(identity, local.keys.publicKey, proof);
         proof = "";

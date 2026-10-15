@@ -88,7 +88,9 @@ describe("Plugin Core connection", () => {
   it("reads setup hints without manual JSON and refreshes Core port/instance with the same local identity", async () => {
     const store = new LocalStore(crypto.randomUUID());
     let hint = metadata;
-    const { transport, requests } = fixture();
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
     const discover = vi.fn(async () => hint);
     const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, discover);
     await connection.connect("synthetic-once");
@@ -120,6 +122,35 @@ describe("Plugin Core connection", () => {
     expect(restarted.requests.some((request) => request.route === "/v1/pair/request")).toBe(false);
     expect(await store.read("connection:/synthetic/one")).toEqual(hint);
     expect(discover).toHaveBeenCalledTimes(2);
+    connection.stop();
+  });
+
+  it("polls live Core health without rescanning Vault through handshake and system health", async () => {
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(crypto.randomUUID()), transport);
+    await connection.configure(metadata, "");
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(requests.filter((entry) => entry.route === "/v1/handshake")).toHaveLength(1);
+    expect(requests.filter((entry) => entry.route === "/v1/system-health")).toHaveLength(1);
+    expect(requests.filter((entry) => entry.route === "/v1/health").length).toBeGreaterThan(1);
+    connection.stop();
+  });
+
+  it("leaves connected state when the lightweight Core poll fails and reauthenticates on recovery", async () => {
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(crypto.randomUUID()), transport);
+    await connection.configure(metadata, "");
+    transport.mockRejectedValueOnce(new Error("synthetic Core stop"));
+    await connection.connect();
+    expect(connection.state.state).toBe("stopped");
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(requests.filter((entry) => entry.route === "/v1/handshake")).toHaveLength(2);
     connection.stop();
   });
 
