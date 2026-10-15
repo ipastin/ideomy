@@ -26,10 +26,10 @@ const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
-function fixture() {
+function fixture(vaultName = "Vault") {
   const root = mkdtempSync(path.join(realpathSync(tmpdir()), "ideomy-bootstrap-"));
   roots.push(root);
-  const vault = path.join(root, "Vault");
+  const vault = path.join(root, vaultName);
   const stateDirectory = path.join(root, "state");
   const pluginDirectory = path.join(root, "bundle");
   mkdirSync(pluginDirectory);
@@ -281,7 +281,7 @@ describe("Bootstrap Foundation", () => {
     expect(readFileSync(main, "utf8")).toBe("user modification");
   });
   it("checks development updates without mutating installed artifacts or the Vault", async () => {
-    const f = fixture();
+    const f = fixture("My Vault's Notes");
     await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
     const installed = path.join(f.vault, ".obsidian/plugins/ideomy/main.js");
     const before = readFileSync(installed);
@@ -292,7 +292,9 @@ describe("Bootstrap Foundation", () => {
     expect(check.exitCode).toBe(0);
     expect(readFileSync(installed)).toEqual(before);
     expect(readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"))).toEqual(state);
-    expect((await updateFoundation({ channel: "dev" }, f.dependencies)).exitCode).toBe(80);
+    const planned = await updateFoundation({ channel: "dev" }, f.dependencies);
+    expect(planned.exitCode).toBe(80);
+    expect(planned.diagnostics[0]?.remediation).toContain(`--vault '${f.vault.replaceAll("'", "'\\''")}'`);
   });
   it("retains recovery state after an interrupted uninstall and safely retries missing components", async () => {
     const f = fixture();

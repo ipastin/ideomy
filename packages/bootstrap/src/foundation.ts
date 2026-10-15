@@ -915,7 +915,7 @@ export async function updateFoundation(
               issue(
                 "DIST-001",
                 "In-place development update is unavailable.",
-                `Review the plan, then run ideomy uninstall --yes followed by ideomy setup --existing --vault ${state.vault_path} --yes. The Vault is preserved; Plugin pairing must be repeated.`,
+                `Review the plan, then run ideomy uninstall --yes followed by ideomy setup --existing --vault '${state.vault_path.replaceAll("'", "'\\''")}' --yes. The Vault is preserved; Plugin pairing must be repeated.`,
               ),
             ]
           : [],
