@@ -97,10 +97,12 @@ export class PluginConnection {
         clientInstanceId: local.clientInstanceId,
         clientVersion: this.version,
       };
+      // Native fetch must not receive PluginConnection as its `this` value.
+      const transport = this.transport;
       const client = new CoreClient(
         () => checked.discovery,
         (input, init) =>
-          this.transport(input, {
+          transport(input, {
             ...init,
             signal: init?.signal ? AbortSignal.any([init.signal, this.abort.signal]) : this.abort.signal,
           }),

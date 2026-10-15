@@ -85,6 +85,19 @@ describe("Plugin local credentials", () => {
 });
 
 describe("Plugin Core connection", () => {
+  it("calls native-style fetch without binding it to PluginConnection", async () => {
+    const { transport: reply } = fixture();
+    const transport = vi.fn<typeof fetch>(function (this: unknown, input, init) {
+      if (this !== undefined) throw new TypeError("Illegal invocation");
+      return reply(input, init);
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(crypto.randomUUID()), transport);
+    await connection.configure(metadata, "");
+    expect(connection.state.state).toBe("connected");
+    expect(transport).toHaveBeenCalled();
+    connection.stop();
+  });
+
   it("rejects a Vault B handoff in active Vault A before persisting or pairing", async () => {
     const store = new LocalStore(crypto.randomUUID());
     const { transport, requests } = fixture();
@@ -158,6 +171,23 @@ describe("Plugin Core connection", () => {
     expect(connection.state.state).toBe("connected");
     expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
     connection.stop();
+  });
+
+  it("refreshes discovery after Plugin reload and Core port change", async () => {
+    const name = crypto.randomUUID();
+    const { transport } = fixture();
+    const first = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(name), transport);
+    await first.configure(metadata, "");
+    first.stop();
+
+    const reloaded = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(name), transport);
+    transport.mockRejectedValueOnce(new Error("offline"));
+    await reloaded.connect();
+    expect(reloaded.state.state).toBe("stopped");
+    await reloaded.configure({ ...metadata, discovery: { ...discovery, port: 31235 } }, "");
+    expect(reloaded.state.state).toBe("connected");
+    expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
+    reloaded.stop();
   });
 
   it("aborts in-flight requests and suppresses late UI updates after unload", async () => {
