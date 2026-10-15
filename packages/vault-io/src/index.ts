@@ -44,6 +44,8 @@ const issue = (code: string, message: string, path?: string): VaultDiagnostic =>
 
 export const hashRaw = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
+const logicalPropertyNames = new Set(Object.values(entitySchemas).flatMap((schema) => Object.keys(schema.shape)));
+
 export function normalizeProperties(
   physical: Record<string, unknown>,
   mapping: Record<string, string>,
@@ -52,7 +54,12 @@ export function normalizeProperties(
   const diagnostics: VaultDiagnostic[] = [];
   const physicalKeys = new Set<string>();
   for (const [name, target] of Object.entries(mapping)) {
-    if (!name || !target || physicalKeys.has(target)) {
+    if (
+      !logicalPropertyNames.has(name) ||
+      !target ||
+      physicalKeys.has(target) ||
+      [...logicalPropertyNames].some((other) => other !== name && (mapping[other] ?? other) === target)
+    ) {
       diagnostics.push(issue("VAULT-107", `Invalid or duplicate physical property mapping: ${name} → ${target}`));
       continue;
     }
@@ -201,7 +208,7 @@ export function scanVault(
   const resolvedRoot = realpathSync(root);
   const notes: { path: string; note: ParsedNote }[] = [];
   const diagnostics: VaultDiagnostic[] = [];
-  const seenIds = new Map<string, string>();
+  const entriesById = new Map<string, { path: string; note: ParsedNote }[]>();
   const visit = (directory: string) => {
     for (const entry of readdirSync(directory, { withFileTypes: true }).sort((a, b) =>
       a.name < b.name ? -1 : a.name > b.name ? 1 : 0,
@@ -232,18 +239,28 @@ export function scanVault(
       }
       if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
       const note = readVaultNote(resolvedRoot, relative, mapping);
-      notes.push({ path: relative, note });
+      const noteEntry = { path: relative, note };
+      notes.push(noteEntry);
       diagnostics.push(...note.diagnostics.map((diagnostic) => ({ ...diagnostic, path: relative })));
       const id = note.logicalProperties?.id;
       if (note.logicalProperties?.ideomy_schema === 1 && typeof id === "string") {
-        const previous = seenIds.get(id);
-        if (previous)
-          diagnostics.push(issue("SCHEMA-104", `Duplicate managed ID also appears in ${previous}.`, relative));
-        else seenIds.set(id, relative);
+        const matching = entriesById.get(id) ?? [];
+        matching.push(noteEntry);
+        entriesById.set(id, matching);
       }
     }
   };
   visit(resolvedRoot);
+  for (const matching of entriesById.values()) {
+    if (matching.length < 2) continue;
+    for (const entry of matching) {
+      const other = matching.find((candidate) => candidate !== entry);
+      const diagnostic = issue("SCHEMA-104", `Duplicate managed ID also appears in ${other?.path}.`, entry.path);
+      entry.note.kind = "invalid";
+      entry.note.diagnostics.push(diagnostic);
+      diagnostics.push(diagnostic);
+    }
+  }
   return { notes, diagnostics };
 }
 
@@ -292,6 +309,9 @@ export function planScalarPropertyChange(
   }
   if (typeof value === "string" && /[\r\n]/.test(value))
     throw new VaultError("VAULT-108", "Multiline scalar requires a dedicated typed mutation.");
+  const type = note.logicalProperties?.type as ManagedEntityType;
+  if (!Object.hasOwn(entitySchemas[type].shape, logicalKey))
+    throw new VaultError("VAULT-108", "Unknown or user-owned property requires an explicit reviewed mutation.");
   const physicalKey = note.mapping[logicalKey] ?? logicalKey;
   const pair = isMap(note.frontmatter.document.contents)
     ? note.frontmatter.document.contents.items.find((item) => isScalar(item.key) && item.key.value === physicalKey)

@@ -25,6 +25,7 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
   const structure: MarkdownStructure = { headings: [], links: [], fences: [], autoSections: [], autoIssues: [] };
   const lines = body.split(/\r?\n/);
   const openAuto = new Map<string, number>();
+  const openOrder: string[] = [];
   const seenAuto = new Set<string>();
   const tree = fromMarkdown(body);
   const definitions = new Map<string, string>();
@@ -56,10 +57,20 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
         });
     }
     if (node.type === "text") {
-      for (const match of node.value.matchAll(/(!?)\[\[([^\]\r\n]+)\]\]/g)) {
+      const start = node.position?.start.offset;
+      const end = node.position?.end.offset;
+      const rawText = start === undefined || end === undefined ? node.value : body.slice(start, end);
+      for (const match of rawText.matchAll(/(!?)\[\[([^\]\r\n]+)\]\]/g)) {
+        const precedingSlashes = rawText.slice(0, match.index).match(/\\+$/)?.[0].length ?? 0;
+        if (precedingSlashes % 2 && match[1] !== "!") continue;
         const [target, alias] = (match[2] ?? "").split("|", 2);
         if (target)
-          structure.links.push({ kind: "wiki", target, ...(alias ? { alias } : {}), embed: match[1] === "!" });
+          structure.links.push({
+            kind: "wiki",
+            target,
+            ...(alias ? { alias } : {}),
+            embed: match[1] === "!" && precedingSlashes % 2 === 0,
+          });
       }
     }
     if (node.type === "code" && node.position) {
@@ -79,14 +90,19 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
         const line = node.position.start.line + (node.value.slice(0, match.index).match(/\n/g) ?? []).length;
         if (match[1] === "BEGIN") {
           if (seenAuto.has(name) || openAuto.has(name)) structure.autoIssues.push(`duplicate AUTO marker: ${name}`);
-          else openAuto.set(name, line);
+          else {
+            openAuto.set(name, line);
+            openOrder.push(name);
+          }
         } else {
           const begin = openAuto.get(name);
           if (begin === undefined) structure.autoIssues.push(`unmatched AUTO end: ${name}`);
+          else if (openOrder.at(-1) !== name) structure.autoIssues.push(`mismatched AUTO end: ${name}`);
           else {
             structure.autoSections.push({ name, begin, end: line });
             seenAuto.add(name);
             openAuto.delete(name);
+            openOrder.pop();
           }
         }
       }

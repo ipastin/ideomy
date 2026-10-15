@@ -35,13 +35,38 @@ describe("M0.2 Vault I/O", () => {
     const result = scanVault(fixtureRoot);
     expect(result.notes).toHaveLength(36);
     expect(result.diagnostics.map((entry) => [entry.code, entry.path])).toEqual([
+      ["SCHEMA-104", "10 Projects/Build Ideomy v1.md"],
       ["SCHEMA-104", "90 Archive/INVALID — Duplicate ID.md"],
     ]);
     expect(result.notes.find((entry) => entry.path.endsWith("Unmanaged Existing Note.md"))?.note.kind).toBe(
       "unmanaged",
     );
-    expect(result.notes.filter((entry) => entry.note.kind === "invalid")).toHaveLength(0);
+    expect(result.notes.filter((entry) => entry.note.kind === "invalid")).toHaveLength(2);
   });
+
+  it("blocks ordinary scalar plans from changing user-owned properties", () => {
+    const raw = Buffer.from(
+      project.toString("utf8").replace("status: active", "status: active\ncustom_property: keep-me"),
+    );
+    const note = parseMarkdown(raw);
+    expect(note.kind).toBe("managed");
+    expect(() => planScalarPropertyChange(note, "custom_property", "changed")).toThrowError(
+      expect.objectContaining({ code: "VAULT-108" }),
+    );
+    expect(planScalarPropertyChange(note, "status", "paused").candidate.toString()).toContain(
+      "custom_property: keep-me",
+    );
+  });
+
+  it("invalidates every note sharing a managed Entity ID", () =>
+    withSyntheticVault((root) => {
+      writeFileSync(path.join(root, "first.md"), project);
+      writeFileSync(path.join(root, "second.md"), project);
+      const result = scanVault(root);
+      expect(result.notes.map(({ note }) => note.kind)).toEqual(["invalid", "invalid"]);
+      expect(result.notes.every(({ note }) => note.diagnostics.some(({ code }) => code === "SCHEMA-104"))).toBe(true);
+      expect(result.diagnostics.filter(({ code }) => code === "SCHEMA-104")).toHaveLength(2);
+    }));
 
   it("keeps BOM, CRLF, comments, unknown keys and body bytes during a scalar plan", () => {
     const source = project
@@ -95,6 +120,20 @@ describe("M0.2 Vault I/O", () => {
     expect(normalizeProperties({}, { status: "same", type: "same" }).diagnostics[0]?.code).toBe("VAULT-107");
   });
 
+  it("rejects a mapping that collides with an unmapped logical property", () => {
+    const raw = Buffer.from(
+      project
+        .toString("utf8")
+        .replace(
+          "topics: [obsidian, knowledge-management]",
+          "topics: [obsidian, knowledge-management]\ntags: [personal]",
+        ),
+    );
+    const note = parseMarkdown(raw, { tags: "topics" });
+    expect(note.kind).toBe("invalid");
+    expect(note.diagnostics.map(({ code }) => code)).toContain("VAULT-107");
+  });
+
   it("extracts links, headings and AUTO boundaries outside code fences", () => {
     const structure = extractMarkdownStructure(
       "# Title\n[[Project|Alias]] ![[image.png]] [site](https://example.com)\n```md\n[[Ignored]]\n```\n<!-- BEGIN AUTO:summary -->\nText\n<!-- END AUTO:summary -->",
@@ -116,6 +155,19 @@ describe("M0.2 Vault I/O", () => {
       { kind: "markdown", target: "https://example.com/a_(b)", alias: "nested", embed: false },
       { kind: "markdown", target: "/target", alias: "reference", embed: false },
     ]);
+  });
+
+  it("reports AUTO sections that close out of order", () => {
+    const structure = extractMarkdownStructure(
+      "<!-- BEGIN AUTO:a -->\n<!-- BEGIN AUTO:b -->\n<!-- END AUTO:a -->\n<!-- END AUTO:b -->",
+    );
+    expect(structure.autoIssues).toContain("mismatched AUTO end: a");
+    expect(structure.autoSections).not.toContainEqual({ name: "a", begin: 1, end: 3 });
+  });
+
+  it("ignores escaped and entity-decoded wikilinks", () => {
+    const structure = extractMarkdownStructure("\\[[escaped]] &#91;[encoded]] [[real]]");
+    expect(structure.links).toEqual([{ kind: "wiki", target: "real", embed: false }]);
   });
 
   it("generates opaque IDs and keeps Vault identity outside notes", () =>
