@@ -281,7 +281,9 @@ describe("Bootstrap Foundation", () => {
     );
     writeFileSync(manifest, previous);
     writeFileSync(path.join(f.vault, "user.md"), "retained");
+    writeFileSync(path.join(f.stateDirectory, "core.log"), "synthetic log", { mode: 0o600 });
     expect((await uninstallFoundation(f.dependencies)).data.vault_preserved).toBe(true);
+    expect(existsSync(path.join(f.stateDirectory, "core.log"))).toBe(false);
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("retained");
     expect((await uninstallFoundation(f.dependencies)).data.already_uninstalled).toBe(true);
   });
@@ -333,6 +335,7 @@ describe("Bootstrap Foundation", () => {
     expect(existsSync(state)).toBe(false);
     expect(existsSync(path.join(f.stateDirectory, "core-admin.secret"))).toBe(false);
     expect(existsSync(path.join(f.stateDirectory, "core-discovery.json"))).toBe(false);
+    expect(existsSync(path.join(f.stateDirectory, "core.log"))).toBe(false);
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("retained");
     expect((await uninstallFoundation(f.dependencies)).data.already_uninstalled).toBe(true);
   });

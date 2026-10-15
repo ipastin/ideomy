@@ -1063,6 +1063,7 @@ export async function uninstallFoundation(dependencies: FoundationDependencies =
       "core-admin.secret",
       "paired-clients.json",
       "core-discovery.json",
+      "core.log",
       "bootstrap-state.json",
     ]) {
       const file = path.join(config.stateDirectory, name);

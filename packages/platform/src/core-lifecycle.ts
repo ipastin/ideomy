@@ -139,7 +139,8 @@ export class MacosCoreLifecycle {
     } finally {
       closeSync(log);
     }
-    for (let attempt = 0; attempt < 100; attempt++) {
+    // Core validates and indexes the Vault before publishing discovery.
+    for (let attempt = 0; attempt < 600; attempt++) {
       const state = this.inspect();
       if (state.state === "running") {
         this.refreshPluginConnection();
