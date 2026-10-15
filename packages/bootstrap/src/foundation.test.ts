@@ -42,11 +42,14 @@ function fixture(vaultName = "Vault") {
   writeFileSync(path.join(templateDirectory, "starter.txt"), "synthetic starter");
   let registered = true;
   let enabled = false;
+  let restricted = false;
   let paired = true;
   let index = "current";
   const runObsidian = vi.fn((args: string[]) => {
     if (args[0] === "vaults") return { ok: true, output: registered ? `Synthetic\t${vault}\n` : "" };
     if (args[0] !== "vault=Synthetic") return { ok: false, output: "Vault not found." };
+    if (args[1] === "plugins:restrict") return { ok: true, output: restricted ? "on" : "off" };
+    if (args[1] === "plugin:enable" && restricted) return { ok: false, output: "Restricted mode is on." };
     if (args[1] === "plugin:enable") enabled = true;
     if (args[1] === "plugin:disable") enabled = false;
     return { ok: true, output: args[1] === "plugins:enabled" && enabled ? "ideomy\t0.0.1\n" : "" };
@@ -105,6 +108,9 @@ function fixture(vaultName = "Vault") {
     stateDirectory,
     setRegistered: (value: boolean) => {
       registered = value;
+    },
+    setRestricted: (value: boolean) => {
+      restricted = value;
     },
     setPaired: (value: boolean) => {
       paired = value;
@@ -188,6 +194,20 @@ describe("Bootstrap Foundation", () => {
     expect(
       (await setupFoundation({ nonInteractive: true, yes: true, skipOpen: true, channel: "dev" }, f.dependencies)).ok,
     ).toBe(true);
+  });
+  it("reloads the Vault before enabling a newly installed Plugin and diagnoses Restricted mode", async () => {
+    const f = fixture();
+    f.setRestricted(true);
+    const blocked = await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    expect(blocked.diagnostics[0]?.code).toBe("PLUG-003");
+    expect(blocked.diagnostics[0]?.message).toContain("restricted");
+    expect(f.runObsidian).not.toHaveBeenCalledWith(["vault=Synthetic", "plugin:enable", "id=ideomy"]);
+    f.setRestricted(false);
+    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
+    const reload = f.runObsidian.mock.calls.findIndex(([args]) => args[1] === "reload");
+    const enable = f.runObsidian.mock.calls.findIndex(([args]) => args[1] === "plugin:enable");
+    expect(reload).toBeGreaterThan(-1);
+    expect(reload).toBeLessThan(enable);
   });
   it("resumes after Core start interruption without rewriting the Vault", async () => {
     const f = fixture();

@@ -468,6 +468,15 @@ export async function setupFoundation(
       write(target, content, null);
     }
     if (!enabled(config.runObsidian, root, manifest.version)) {
+      const restricted = vaultCommand(config.runObsidian, root, ["plugins:restrict"]);
+      if (restricted.ok && restricted.output.trim() === "on")
+        throw new Failure(
+          "PLUG-003",
+          "Community plugins are restricted in the selected Vault.",
+          "Turn off Restricted mode in this Vault, then rerun setup.",
+          30,
+        );
+      vaultCommand(config.runObsidian, root, ["reload"]);
       const enable = vaultCommand(config.runObsidian, root, ["plugin:enable", "id=ideomy"]);
       if (!enable.ok || !enabled(config.runObsidian, root, manifest.version))
         throw new Failure(
