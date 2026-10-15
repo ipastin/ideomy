@@ -53,6 +53,19 @@ function privateStateDirectory(directory: string): void {
   }
 }
 
+function claimStateDirectory(directory: string): () => void {
+  const lock = path.join(directory, "core-instance.lock");
+  try {
+    writeFileSync(lock, String(process.pid), { mode: 0o600, flag: "wx" });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+      throw new Error("Core state is already claimed. Stop the existing Core or explicitly repair a stale lock.");
+    }
+    throw error;
+  }
+  return () => unlinkSync(lock);
+}
+
 function writePrivateFile(directory: string, name: string, content: string): void {
   const target = path.join(directory, name);
   const temporary = `${target}.${randomBytes(8).toString("hex")}.tmp`;
@@ -121,6 +134,16 @@ async function jsonBody(request: IncomingMessage): Promise<unknown> {
 export async function startCore(options: CoreOptions): Promise<RunningCore> {
   if (!options.vaultId || !options.vaultFingerprint) throw new Error("Vault identity is required.");
   privateStateDirectory(options.stateDirectory);
+  const releaseState = claimStateDirectory(options.stateDirectory);
+  try {
+    return await startLockedCore(options, releaseState);
+  } catch (error) {
+    releaseState();
+    throw error;
+  }
+}
+
+async function startLockedCore(options: CoreOptions, releaseState: () => void): Promise<RunningCore> {
   const admin = adminSecret(options.stateDirectory);
   writePrivateFile(
     options.stateDirectory,
@@ -133,6 +156,7 @@ export async function startCore(options: CoreOptions): Promise<RunningCore> {
   const challenges = new Map<string, Challenge>();
   const pairingRequests = new Map<string, { proof: string; expiresAt: number }>();
   const attempts = new Map<string, { since: number; count: number }>();
+  const allowedOrigins = options.allowedOrigins ?? ["app://obsidian.md"];
   let pairing: { proof: string; expiresAt: number } | undefined;
 
   const openPairingWindow = () => {
@@ -184,11 +208,45 @@ export async function startCore(options: CoreOptions): Promise<RunningCore> {
     };
 
     try {
-      if (request.headers.origin && !options.allowedOrigins?.includes(request.headers.origin)) {
+      const origin = request.headers.origin;
+      if (origin && !allowedOrigins.includes(origin)) {
         error(403, "CORE-403", "Origin is not permitted.");
         return;
       }
+      if (origin) {
+        response.setHeader("Access-Control-Allow-Origin", origin);
+        response.setHeader("Vary", "Origin");
+      }
       const route = new URL(request.url ?? "/", "http://localhost").pathname;
+      if (request.method === "OPTIONS") {
+        const requestedHeaders = String(request.headers["access-control-request-headers"] ?? "")
+          .toLowerCase()
+          .split(",")
+          .map((header) => header.trim())
+          .filter(Boolean);
+        const allowedHeaders = [
+          "authorization",
+          "content-type",
+          "x-ideomy-protocol",
+          "x-ideomy-client",
+          "x-ideomy-request-id",
+          "idempotency-key",
+        ];
+        if (
+          !origin ||
+          !["GET", "POST"].includes(String(request.headers["access-control-request-method"] ?? "")) ||
+          requestedHeaders.some((header) => !allowedHeaders.includes(header))
+        )
+          return error(403, "CORE-403", "Preflight request is not permitted.");
+        response.writeHead(204, {
+          "Access-Control-Allow-Methods": "GET, POST",
+          "Access-Control-Allow-Headers": allowedHeaders.join(", "),
+          "Access-Control-Max-Age": "600",
+          "Cache-Control": "no-store",
+        });
+        response.end();
+        return;
+      }
       if (request.method === "GET" && route === "/v1/health") {
         send(
           response,
@@ -413,11 +471,15 @@ export async function startCore(options: CoreOptions): Promise<RunningCore> {
       challenges.clear();
       pairingRequests.clear();
       pairing = undefined;
-      await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
-      const target = path.join(options.stateDirectory, "core-discovery.json");
-      if (existsSync(target)) {
-        const current = protocolSchemas.discovery.safeParse(JSON.parse(readFileSync(target, "utf8")));
-        if (current.success && current.data.instance_id === instanceId) unlinkSync(target);
+      try {
+        await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+        const target = path.join(options.stateDirectory, "core-discovery.json");
+        if (existsSync(target)) {
+          const current = protocolSchemas.discovery.safeParse(JSON.parse(readFileSync(target, "utf8")));
+          if (current.success && current.data.instance_id === instanceId) unlinkSync(target);
+        }
+      } finally {
+        releaseState();
       }
     },
   };

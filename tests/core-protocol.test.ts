@@ -48,6 +48,22 @@ describe("M0.3 Core protocol", () => {
       expect(JSON.stringify(discovery)).not.toContain("secret");
       expect(statSync(path.join(directory, "core-admin.secret")).mode & 0o077).toBe(0);
       expect(statSync(path.join(directory, "core-discovery.json")).mode & 0o077).toBe(0);
+      expect(statSync(path.join(directory, "core-instance.lock")).mode & 0o077).toBe(0);
+
+      const preflight = await fetch(`http://127.0.0.1:${core.discovery.port}/v1/auth/session`, {
+        method: "OPTIONS",
+        headers: {
+          Origin: "app://obsidian.md",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers":
+            "authorization,content-type,x-ideomy-protocol,x-ideomy-client,x-ideomy-request-id",
+        },
+      });
+      expect(preflight.status).toBe(204);
+      expect(preflight.headers.get("Access-Control-Allow-Origin")).toBe("app://obsidian.md");
+      expect(preflight.headers.get("Access-Control-Allow-Headers")).toContain("authorization");
+      const corsHealth = await request(core, "/v1/health", { headers: { Origin: "app://obsidian.md" } });
+      expect(corsHealth.headers.get("Access-Control-Allow-Origin")).toBe("app://obsidian.md");
 
       const noSession = await request(core, "/v1/system-health");
       expect(noSession.status).toBe(401);
@@ -81,6 +97,11 @@ describe("M0.3 Core protocol", () => {
       ).rejects.toMatchObject({ code: "VAULT-004" });
       const maliciousOrigin = await request(core, "/v1/health", { headers: { Origin: "https://example.test" } });
       expect(maliciousOrigin.status).toBe(403);
+      const maliciousPreflight = await fetch(`http://127.0.0.1:${core.discovery.port}/v1/auth/session`, {
+        method: "OPTIONS",
+        headers: { Origin: "https://example.test", "Access-Control-Request-Method": "POST" },
+      });
+      expect(maliciousPreflight.status).toBe(403);
       if (process.platform !== "win32") {
         chmodSync(directory, 0o755);
         try {
@@ -89,6 +110,20 @@ describe("M0.3 Core protocol", () => {
           chmodSync(directory, 0o700);
         }
       }
+    }));
+
+  it("refuses a second Core instance without replacing active discovery or profile", () =>
+    withCore(async (core, directory) => {
+      const profile = readFileSync(path.join(directory, "core-profile.json"), "utf8");
+      await expect(
+        startCore({ stateDirectory: directory, vaultId: "vault_other", vaultFingerprint: "sha256:other" }),
+      ).rejects.toThrow("Core state is already claimed.");
+      expect(readCoreDiscovery(directory)).toEqual(core.discovery);
+      expect(readFileSync(path.join(directory, "core-profile.json"), "utf8")).toBe(profile);
+      const client = new CoreClient(() => readCoreDiscovery(directory));
+      expect((await client.connectCli(identity("cli_single_instance"), readCliAdminSecret(directory))).vault_id).toBe(
+        vaultId,
+      );
     }));
 
   it("pairs a WebCrypto Plugin, rejects proof replay, and reconnects after Core restart", async () => {
