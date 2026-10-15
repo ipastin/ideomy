@@ -21,6 +21,10 @@
   },
   "devDependencies": {
     "@ideomy/cli": "workspace:*",
+    "@ideomy/contracts": "workspace:*",
+    "@ideomy/core": "workspace:*",
+    "@ideomy/core-client": "workspace:*",
+    "@ideomy/platform": "workspace:*",
     "@biomejs/biome": "2.5.0",
     "@types/node": "24.7.0",
     "ajv": "8.17.1",
