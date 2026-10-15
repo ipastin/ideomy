@@ -151,7 +151,7 @@ export function parseMarkdown(bytes: Uint8Array, mapping: Record<string, string>
 
   const properties = normalized.logical;
   const type = properties.type;
-  if (properties.ideomy_schema !== 1 || typeof type !== "string" || !(type in entitySchemas)) {
+  if (properties.ideomy_schema !== 1 || typeof type !== "string" || !Object.hasOwn(entitySchemas, type)) {
     diagnostics.push(issue("SCHEMA-101", "Managed marker or entity type is invalid."));
     return { ...parsed, kind: "invalid" };
   }
@@ -238,7 +238,20 @@ export function scanVault(
         continue;
       }
       if (!entry.isFile() || !entry.name.endsWith(".md")) continue;
-      const note = readVaultNote(resolvedRoot, relative, mapping);
+      let note: ParsedNote;
+      try {
+        note = readVaultNote(resolvedRoot, relative, mapping);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        diagnostics.push(
+          issue(
+            error instanceof VaultError ? error.code : "VAULT-110",
+            error instanceof VaultError ? error.message : "Markdown file could not be read.",
+            relative,
+          ),
+        );
+        continue;
+      }
       const noteEntry = { path: relative, note };
       notes.push(noteEntry);
       diagnostics.push(...note.diagnostics.map((diagnostic) => ({ ...diagnostic, path: relative })));

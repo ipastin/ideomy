@@ -1,4 +1,13 @@
-import { mkdtempSync, readFileSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  renameSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
@@ -108,6 +117,14 @@ describe("M0.2 Vault I/O", () => {
     expect(parseMarkdown(Buffer.from([0xff])).diagnostics[0]?.code).toBe("VAULT-101");
   });
 
+  it("reports inherited object property names as invalid Entity types", () => {
+    for (const type of ["toString", "constructor", "__proto__"]) {
+      const note = parseMarkdown(Buffer.from(project.toString("utf8").replace("type: project", `type: ${type}`)));
+      expect(note.kind).toBe("invalid");
+      expect(note.diagnostics[0]?.code).toBe("SCHEMA-101");
+    }
+  });
+
   it("normalizes mapped properties without consuming a user-owned key", () => {
     const mapped = project.toString("utf8").replace("status: active", "status: user-state\nideomy_status: active");
     const note = parseMarkdown(Buffer.from(mapped), { status: "ideomy_status" });
@@ -208,6 +225,33 @@ describe("M0.2 Vault I/O", () => {
         expect(scanVault(root).diagnostics.map((entry) => entry.code)).toContain("VAULT-105");
       } finally {
         rmSync(outside, { recursive: true, force: true });
+      }
+    }));
+
+  it("continues past an unreadable note without reporting it as deleted", () =>
+    withSyntheticVault((root) => {
+      const unreadable = path.join(root, "unreadable.md");
+      writeFileSync(path.join(root, "safe.md"), "# Safe\n");
+      writeFileSync(unreadable, "# Private\n");
+      const events: { kind: string; path: string; code?: string }[] = [];
+      const watcher = new VaultWatcher(root, (event) => events.push(event));
+      try {
+        chmodSync(unreadable, 0o000);
+        const scan = scanVault(root);
+        expect(scan.notes.map((entry) => entry.path)).toEqual(["safe.md"]);
+        expect(scan.diagnostics).toEqual([
+          { code: "VAULT-110", severity: "error", message: "Markdown file could not be read.", path: "unreadable.md" },
+        ]);
+        new VaultWatcher(root, () => {}).close();
+        watcher.reconcileAll();
+        expect(events).toEqual([{ kind: "error", path: "unreadable.md", code: "VAULT-110" }]);
+        chmodSync(unreadable, 0o600);
+        writeFileSync(unreadable, "# Updated\n");
+        watcher.reconcileAll();
+        expect(events.at(-1)).toMatchObject({ kind: "change", path: "unreadable.md" });
+      } finally {
+        chmodSync(unreadable, 0o600);
+        watcher.close();
       }
     }));
 

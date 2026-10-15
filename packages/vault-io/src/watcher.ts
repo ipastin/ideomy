@@ -83,8 +83,12 @@ export class VaultWatcher {
 
   reconcileAll(): void {
     let current: Map<string, string>;
+    let unreadable: Set<string>;
     try {
       const scan = scanVault(this.root);
+      unreadable = new Set(
+        scan.diagnostics.filter((entry) => entry.code === "VAULT-110").map((entry) => entry.path ?? ""),
+      );
       for (const diagnostic of scan.diagnostics) {
         if (diagnostic.severity === "error") {
           this.onEvent({ kind: "error", path: diagnostic.path ?? "", code: diagnostic.code });
@@ -97,7 +101,7 @@ export class VaultWatcher {
     }
     for (const [relativePath, hash] of current) this.observe(relativePath, hash);
     for (const relativePath of this.known.keys()) {
-      if (!current.has(relativePath)) {
+      if (!current.has(relativePath) && !unreadable.has(relativePath)) {
         this.known.delete(relativePath);
         this.onEvent({ kind: "unlink", path: relativePath });
       }
