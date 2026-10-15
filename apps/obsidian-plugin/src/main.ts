@@ -97,16 +97,24 @@ class IdeomyView extends ItemView {
     });
     if (this.plugin.connection) {
       const form = this.contentEl.createEl("form");
+      form.style.display = "grid";
+      form.style.gap = "var(--size-4-2)";
       const label = form.createEl("label", {
         text: "Development connection JSON (discovery, vaultFingerprint and vaultPath)",
       });
+      label.style.display = "grid";
       const metadata = label.createEl("textarea", { attr: { rows: "5", spellcheck: "false", autocomplete: "off" } });
+      metadata.style.width = "100%";
       const proofLabel = form.createEl("label", { text: "One-time pairing proof (leave empty to reconnect)" });
+      proofLabel.style.display = "grid";
       const proof = proofLabel.createEl("input", { type: "password", attr: { autocomplete: "off" } });
+      proof.style.width = "100%";
       const button = form.createEl("button", { text: "Connect", type: "submit" });
+      button.style.justifySelf = "start";
       const feedback = form.createEl("p", { attr: { role: "status" } });
       this.registerDomEvent(form, "submit", (event) => {
         event.preventDefault();
+        feedback.textContent = "";
         const once = proof.value;
         proof.value = "";
         button.disabled = true;
@@ -121,7 +129,8 @@ class IdeomyView extends ItemView {
         void this.plugin.connection
           ?.configure(parsed, once)
           .catch(() => {
-            feedback.textContent = "Invalid metadata or unavailable local storage.";
+            if (this.plugin.connection?.state.state !== "wrong-vault")
+              feedback.textContent = "Invalid metadata or unavailable local storage.";
           })
           .finally(() => {
             button.disabled = false;
