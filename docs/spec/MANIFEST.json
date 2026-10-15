@@ -1,16 +1,16 @@
 {
   "name": "Ideomy Project Specification Pack",
-  "version": "0.11.0",
-  "system_spec_version": "1.11.0",
+  "version": "0.11.1",
+  "system_spec_version": "1.11.1",
   "created": "06-10-26 16-40-00",
-  "updated": "12-10-26 16-30-30",
-  "commit": "refactor(brand): adopt Ideomy canonical namespace",
+  "updated": "15-10-26 14-53-19",
+  "commit": "docs(bootstrap): separate Plugin P0 acceptance",
   "numbered_documents": 23,
   "files": [
     {
-      "path": "00_README__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 8277,
-      "sha256": "a514077f303b1441972dc06fa356a5fc8bfc2cfaa288308396682ca292840c8a"
+      "path": "00_README__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 8589,
+      "sha256": "f1d52546a92bfcafe5c333109472d56220bccd039849a67c66f581d62067d824"
     },
     {
       "path": "01_PRODUCT__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -63,19 +63,19 @@
       "sha256": "a90a5d05a106517bf492cae8e1cbbb4554514f47b44c2615e874ba2d1049aa03"
     },
     {
-      "path": "11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 7741,
-      "sha256": "9d9ed44e19e1be0a93836978d69673bc8c02f6ca6608815df9644d2c274eb5f6"
+      "path": "11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 8445,
+      "sha256": "e9eac4b4f38e7e42f452ebb2e30f0c59d6b6fcfe3bbba31073d8a8c6bc9bd424"
     },
     {
-      "path": "12_EVALS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 5844,
-      "sha256": "93b446177a1427f501a2b4c426fa4ba4e9894e8f9d1badcd4fd349648da2a1c9"
+      "path": "12_EVALS__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 6407,
+      "sha256": "e74820a6af86c810382c84f0fbab327a67c7ba060d76a896dfca249a084f6588"
     },
     {
-      "path": "13_ADR__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 25072,
-      "sha256": "5694fafc2a9827427d4c0b45df1a1a10b73e5b434508e60359e48d1a45e284fc"
+      "path": "13_ADR__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 25923,
+      "sha256": "7196e7804a34f48fcce8b776e885c40bcc0904d8ecaf6afb110deb5cfdabf7cf"
     },
     {
       "path": "14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -88,9 +88,9 @@
       "sha256": "aa80e65f90c6d00f24f46ec68aa77fd8499abd1401d93a4198f698611f11d461"
     },
     {
-      "path": "16_BOOTSTRAP__created-09-10-26_16-54-26__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 12924,
-      "sha256": "d3ec8eb2902c7c902b5c002f618a6143cc69b64ef9007ed9eba8fdeb005da17a"
+      "path": "16_BOOTSTRAP__created-09-10-26_16-54-26__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 13509,
+      "sha256": "d734028c9b577d5abbc931e83f189fe30d183f70e148e37c9fe21fe4d9e34c53"
     },
     {
       "path": "17_MODEL_GATEWAY__created-10-10-26_09-37-47__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -103,9 +103,9 @@
       "sha256": "265ff314cd132a48c84a750a2e4a5dddc05058135b6df47afd54541fdb0e1476"
     },
     {
-      "path": "19_OBSIDIAN_PLUGIN__created-10-10-26_14-56-08__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 29941,
-      "sha256": "e613e5def89f63d0e868020a819d3871c808cc90818f9d186aa4e309f1eefa91"
+      "path": "19_OBSIDIAN_PLUGIN__created-10-10-26_14-56-08__updated-15-10-26_14-53-19__v0.11.1.md",
+      "bytes": 30221,
+      "sha256": "025378550f083db5bea1fce39f29594ee7b4b9442eb088210b201d3b56b1a2a1"
     },
     {
       "path": "20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -130,7 +130,7 @@
     {
       "path": "READINESS_VALIDATION.json",
       "bytes": 2443,
-      "sha256": "3290b8f6afae22329f6db06be4a2c1f50e8dda1ec49bf1098a74a3b51814a716"
+      "sha256": "bb45f33ca289374a9d405f4674bd2d5d4b2c2242ca814677a86a83a063208735"
     },
     {
       "path": "contracts/README.md",
@@ -433,9 +433,9 @@
       "sha256": "66541b207498b96658e1ff9126942504ef5b3414802cae081bbc0c70d09296bd"
     },
     {
-      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v1.11.0.md",
-      "bytes": 261731,
-      "sha256": "b25faff45f9680a404f98bae961a31da50623a5a8cc7f5ff2a994564b1b48bfe"
+      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v1.11.1.md",
+      "bytes": 265323,
+      "sha256": "a800c874546248856ee6460899cb2c8cafcab6d9c8d29d1a2cfb1a40d2778a91"
     },
     {
       "path": "schemas/README.md",

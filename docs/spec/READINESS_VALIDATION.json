@@ -1,7 +1,7 @@
 {
-  "pack_version": "0.11.0",
-  "system_spec_version": "1.11.0",
-  "timestamp": "12-10-26 16-30-30",
+  "pack_version": "0.11.1",
+  "system_spec_version": "1.11.1",
+  "timestamp": "15-10-26 14-53-19",
   "readiness": "READY_FOR_M0_IMPLEMENTATION",
   "checks": {
     "numbered_docs": 23,
