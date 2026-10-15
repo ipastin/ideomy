@@ -22,7 +22,10 @@ if (listed.status !== 0) throw new Error(listed.stderr.toString("utf8"));
 const findings = [];
 for (const name of listed.stdout.toString("utf8").split("\0").filter(Boolean)) {
   const file = path.join(root, name);
-  if (!fs.existsSync(file) || !fs.statSync(file).isFile()) continue;
+  if (!fs.existsSync(file)) continue;
+  const stat = fs.lstatSync(file);
+  if (stat.isSymbolicLink()) throw new Error(`Repository symlink is not scanned: ${name}`);
+  if (!stat.isFile()) continue;
   const bytes = fs.readFileSync(file);
   if (bytes.includes(0)) continue;
   const text = bytes.toString("utf8");
