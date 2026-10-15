@@ -1,0 +1,20 @@
+filters:
+  and:
+    - 'type == "knowledge"'
+views:
+  - type: table
+    name: Recent
+    order:
+      - file.name
+      - status
+      - subtype
+      - primary_area
+      - updated
+  - type: table
+    name: Developing
+    filters:
+      and:
+        - 'status == "developing"'
+    order:
+      - file.name
+      - primary_area

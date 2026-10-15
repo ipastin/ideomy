@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/base.schema.json",
+  "title": "Ideomy Managed Entity Base Frontmatter",
+  "type": "object",
+  "required": [
+    "ideomy_schema",
+    "id",
+    "type",
+    "status",
+    "created",
+    "updated",
+    "sensitivity",
+    "agent_access"
+  ],
+  "properties": {
+    "ideomy_schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^(area|prj|gol|kn|src|per|org|dec|mtg|evt|rec|ast|plc|jrn|sys)_[0-9A-HJKMNP-TV-Z]{26}$"
+    },
+    "type": {
+      "enum": [
+        "area",
+        "project",
+        "goal",
+        "knowledge",
+        "source",
+        "person",
+        "organization",
+        "decision",
+        "meeting",
+        "event",
+        "record",
+        "asset",
+        "place",
+        "journal",
+        "system"
+      ]
+    },
+    "subtype": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "status": {
+      "type": "string"
+    },
+    "aliases": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "primary_area": {
+      "anyOf": [
+        {
+          "type": "string",
+          "pattern": "^\\[\\[.+\\]\\]$"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "related_areas": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "maxItems": 2,
+      "uniqueItems": true
+    },
+    "topics": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+      },
+      "maxItems": 10,
+      "uniqueItems": true
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "goals": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "people": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "organizations": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "places": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "decisions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^\\[\\[.+\\]\\]$"
+      },
+      "uniqueItems": true
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "updated": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sensitivity": {
+      "enum": [
+        "public",
+        "internal",
+        "private",
+        "sensitive"
+      ]
+    },
+    "agent_access": {
+      "enum": [
+        "allowed",
+        "restricted",
+        "local_only",
+        "denied"
+      ]
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "slug": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

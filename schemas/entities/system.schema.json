@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/system.schema.json",
+  "title": "Ideomy system frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "system"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "active",
+            "deprecated"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "specification",
+            "schema",
+            "workflow",
+            "prompt",
+            "agent-policy",
+            "template",
+            "dashboard",
+            "taxonomy",
+            "migration",
+            "moc",
+            "other"
+          ]
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^\\d+\\.\\d+\\.\\d+(?:[-+][0-9A-Za-z.-]+)?$"
+        },
+        "change_type": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype",
+        "version"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

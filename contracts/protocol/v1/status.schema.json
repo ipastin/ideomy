@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/protocol/v1/status.schema.json",
+  "type": "object",
+  "required": [
+    "status",
+    "core",
+    "vault",
+    "schema",
+    "index"
+  ],
+  "properties": {
+    "status": {
+      "enum": [
+        "healthy",
+        "attention",
+        "degraded",
+        "unavailable"
+      ]
+    },
+    "core": {
+      "type": "object"
+    },
+    "vault": {
+      "type": "object"
+    },
+    "schema": {
+      "type": "object"
+    },
+    "index": {
+      "type": "object"
+    },
+    "models": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

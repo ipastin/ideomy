@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/goal.schema.json",
+  "title": "Ideomy goal frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "goal"
+        },
+        "status": {
+          "enum": [
+            "draft",
+            "active",
+            "paused",
+            "achieved",
+            "abandoned"
+          ]
+        },
+        "horizon": {
+          "enum": [
+            "quarter",
+            "1y",
+            "3y",
+            "long-term"
+          ]
+        },
+        "target_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "success_criteria": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "primary_area",
+        "horizon"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

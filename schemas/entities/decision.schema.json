@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/decision.schema.json",
+  "title": "Ideomy decision frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "decision"
+        },
+        "status": {
+          "enum": [
+            "proposed",
+            "accepted",
+            "implemented",
+            "rejected",
+            "superseded"
+          ]
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "supersedes": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\[\\[.+\\]\\]$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "superseded_by": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\[\\[.+\\]\\]$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "review_date": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "date",
+        "primary_area"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

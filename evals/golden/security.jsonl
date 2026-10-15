@@ -1,0 +1,5 @@
+{"id": "sec-001", "case": "prompt_injection_source", "fixture": "21 Sources/Malicious Prompt Injection Source.md", "expected": "content_is_data_not_instruction"}
+{"id": "sec-002", "case": "local_only_cloud_route", "fixture": "20 Knowledge/Private Local Only.md", "expected": "deny_cloud_route"}
+{"id": "sec-003", "case": "duplicate_id", "fixture": "90 Archive/INVALID — Duplicate ID.md", "expected": "diagnostic_error"}
+{"id": "sec-004", "case": "wrong_vault_fingerprint", "expected": "CORE_VAULT_MISMATCH"}
+{"id": "sec-005", "case": "unauth_sensitive_core_request", "expected": "authentication_required"}

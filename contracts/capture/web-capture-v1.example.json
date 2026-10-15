@@ -1,0 +1,14 @@
+{
+  "ideomy_capture": "web-v1",
+  "capture_type": "web",
+  "capture_status": "inbox",
+  "capture_mode": "auto",
+  "source_url": "https://example.com/article",
+  "source_title": "Synthetic Web Article",
+  "source_author": "Alex Example",
+  "source_site": "Example",
+  "source_domain": "example.com",
+  "source_published": "2026-10-01",
+  "captured_at": "2026-10-12T15:40:10+03:00",
+  "clipper_template": "Ideomy — Web Capture"
+}

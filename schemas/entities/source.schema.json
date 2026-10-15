@@ -1,0 +1,103 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/source.schema.json",
+  "title": "Ideomy source frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "source"
+        },
+        "status": {
+          "enum": [
+            "inbox",
+            "queued",
+            "consuming",
+            "processed",
+            "archived"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "article",
+            "book",
+            "paper",
+            "documentation",
+            "website",
+            "video",
+            "podcast",
+            "course",
+            "conversation",
+            "chat",
+            "pdf",
+            "report",
+            "newsletter",
+            "other"
+          ]
+        },
+        "author": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "published": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "accessed": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "knowledge_created": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^\\[\\[.+\\]\\]$"
+          }
+        },
+        "attachment": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\[\\[.+\\]\\]$"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

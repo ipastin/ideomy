@@ -1,0 +1,15 @@
+{
+  "client_type": "plugin",
+  "client_version": "0.1.0",
+  "protocol_min": 1,
+  "protocol_max": 1,
+  "vault_id": "vault_01K7EXAMPLE0000000000000",
+  "vault_fingerprint": "sha256:example",
+  "client_instance_id": "plugin_01K7EXAMPLE00000000000",
+  "platform": "desktop",
+  "requested_capabilities": [
+    "search",
+    "capture",
+    "review"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "id": "review_01K7EXAMPLE00000000000",
+  "kind": "classification",
+  "risk": "medium",
+  "state": "pending",
+  "created_at": "2026-10-10T15:00:00+03:00",
+  "entity_id": "kn_01K7EXAMPLE00000000000000",
+  "proposal": {
+    "primary_area": "[[Technology & AI]]"
+  },
+  "reason": "The note primarily concerns MCP runtime implementation.",
+  "base_hash": "sha256:example"
+}

@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/asset.schema.json",
+  "title": "Ideomy asset frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "asset"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "active",
+            "maintenance",
+            "sold",
+            "retired",
+            "lost"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "device",
+            "vehicle",
+            "property",
+            "equipment",
+            "digital",
+            "license",
+            "other"
+          ]
+        },
+        "acquired": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "purchase_price": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "currency": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "warranty_until": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype",
+        "primary_area"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

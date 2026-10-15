@@ -1,0 +1,11 @@
+{
+  "operation_id": "op_01K7EXAMPLE00000000000000",
+  "state": "running",
+  "kind": "source_process",
+  "stage": "Resolving entities",
+  "progress": 0.4,
+  "created_at": "2026-10-10T15:00:00+03:00",
+  "updated_at": "2026-10-10T15:00:03+03:00",
+  "result": null,
+  "error": null
+}

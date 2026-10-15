@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/place.schema.json",
+  "title": "Ideomy place frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "place"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "inactive",
+            "archived"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "country",
+            "region",
+            "city",
+            "neighborhood",
+            "venue",
+            "hotel",
+            "restaurant",
+            "office",
+            "airport",
+            "other"
+          ]
+        },
+        "country": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "region": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

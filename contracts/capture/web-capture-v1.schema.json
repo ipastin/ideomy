@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/contracts/capture/web-capture-v1.schema.json",
+  "title": "Ideomy Web Capture V1 frontmatter envelope",
+  "type": "object",
+  "required": [
+    "ideomy_capture",
+    "capture_type",
+    "capture_status",
+    "capture_mode",
+    "source_url",
+    "captured_at"
+  ],
+  "properties": {
+    "ideomy_capture": {
+      "const": "web-v1"
+    },
+    "capture_type": {
+      "const": "web"
+    },
+    "capture_status": {
+      "enum": [
+        "inbox"
+      ]
+    },
+    "capture_mode": {
+      "enum": [
+        "auto",
+        "page",
+        "selection",
+        "highlights"
+      ]
+    },
+    "source_url": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source_title": {
+      "type": "string"
+    },
+    "source_author": {
+      "type": "string"
+    },
+    "source_site": {
+      "type": "string"
+    },
+    "source_domain": {
+      "type": "string"
+    },
+    "source_published": {
+      "type": "string"
+    },
+    "captured_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "clipper_template": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}

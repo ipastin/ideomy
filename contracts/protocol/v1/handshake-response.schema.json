@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/protocol/v1/handshake-response.schema.json",
+  "type": "object",
+  "required": [
+    "core_version",
+    "core_instance_id",
+    "protocol",
+    "vault_id",
+    "vault_fingerprint",
+    "capabilities",
+    "compatibility"
+  ],
+  "properties": {
+    "core_version": {
+      "type": "string"
+    },
+    "core_instance_id": {
+      "type": "string"
+    },
+    "protocol": {
+      "const": 1
+    },
+    "vault_id": {
+      "type": "string"
+    },
+    "vault_fingerprint": {
+      "type": "string"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "compatibility": {
+      "enum": [
+        "compatible",
+        "client_update_required",
+        "core_update_required",
+        "unsupported"
+      ]
+    },
+    "schema_status": {
+      "type": "string"
+    },
+    "index_status": {
+      "type": "string"
+    },
+    "session_expires_at": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "date-time"
+    }
+  },
+  "additionalProperties": false
+}

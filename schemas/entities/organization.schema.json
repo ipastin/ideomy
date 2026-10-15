@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/organization.schema.json",
+  "title": "Ideomy organization frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "organization"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "inactive",
+            "archived"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "company",
+            "employer",
+            "client",
+            "vendor",
+            "service",
+            "community",
+            "institution",
+            "government",
+            "education",
+            "nonprofit",
+            "other"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

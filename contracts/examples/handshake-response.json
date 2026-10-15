@@ -1,0 +1,16 @@
+{
+  "core_version": "0.1.0",
+  "core_instance_id": "core_01K7EXAMPLE000000000000",
+  "protocol": 1,
+  "vault_id": "vault_01K7EXAMPLE0000000000000",
+  "vault_fingerprint": "sha256:example",
+  "capabilities": [
+    "search",
+    "capture",
+    "review"
+  ],
+  "compatibility": "compatible",
+  "schema_status": "valid",
+  "index_status": "current",
+  "session_expires_at": "2026-10-10T18:00:00+03:00"
+}

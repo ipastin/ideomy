@@ -1,0 +1,11 @@
+filters:
+  and:
+    - file.hasTag("needs-review")
+views:
+  - type: table
+    name: Needs review
+    order:
+      - file.name
+      - type
+      - status
+      - updated

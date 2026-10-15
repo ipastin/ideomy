@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/event.schema.json",
+  "title": "Ideomy event frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "event"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "completed",
+            "cancelled"
+          ]
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        },
+        "start_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end_time": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "date"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

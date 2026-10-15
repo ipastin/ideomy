@@ -1,0 +1,21 @@
+filters:
+  and:
+    - 'type == "source"'
+views:
+  - type: table
+    name: Inbox
+    filters:
+      and:
+        - 'status == "inbox"'
+    order:
+      - file.name
+      - subtype
+      - accessed
+  - type: table
+    name: Processed
+    filters:
+      and:
+        - 'status == "processed"'
+    order:
+      - file.name
+      - subtype

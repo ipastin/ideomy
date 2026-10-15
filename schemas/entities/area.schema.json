@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/area.schema.json",
+  "title": "Ideomy area frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "area"
+        },
+        "status": {
+          "enum": [
+            "active",
+            "inactive",
+            "archived"
+          ]
+        },
+        "domain": {
+          "type": "string"
+        },
+        "review_cadence": {
+          "enum": [
+            "weekly",
+            "monthly",
+            "quarterly",
+            "yearly",
+            "ad-hoc"
+          ]
+        },
+        "health": {
+          "enum": [
+            "healthy",
+            "attention",
+            "critical",
+            "inactive"
+          ]
+        },
+        "trend": {
+          "enum": [
+            "improving",
+            "stable",
+            "declining",
+            "unknown"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "domain",
+        "review_cadence"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

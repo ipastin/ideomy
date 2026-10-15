@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "hard_gates": {
+    "valid_fixture_schema_rate": 1.0,
+    "expected_invalid_detection_rate": 1.0,
+    "unintended_roundtrip_diff_count": 0,
+    "path_traversal_escape_count": 0,
+    "critical_auth_or_vault_isolation_failures": 0,
+    "critical_privacy_policy_failures": 0,
+    "false_automatic_merge_count": 0
+  },
+  "quality_gates": {
+    "classification_primary_area_accuracy_min": 0.92,
+    "classification_type_accuracy_min": 0.95,
+    "ambiguous_to_review_recall_min": 0.95,
+    "managed_output_schema_validity_min": 0.99,
+    "entity_resolution_precision_min": 0.98,
+    "decision_why_recall_at_5_min": 0.95,
+    "project_context_key_item_recall_at_10_min": 0.9,
+    "ask_provenance_coverage_min": 0.95
+  },
+  "policy": "Hard gates cannot be weakened without ADR. Quality gates are versioned and may be changed only with measured evidence.",
+  "web_capture_contract_validity": 1.0,
+  "web_capture_policy_override_failures": 0
+}

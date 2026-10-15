@@ -1,0 +1,3 @@
+{"id": "mut-001", "case": "metadata_set_property", "fixture": "10 Projects/Build Ideomy v1.md", "operation": {"set_property": {"status": "active"}}, "expected": "body_unchanged_outside_target"}
+{"id": "mut-002", "case": "concurrent_hash_mismatch", "fixture": "10 Projects/Build Ideomy v1.md", "expected": "conflict_no_write"}
+{"id": "mut-003", "case": "rollback_after_validation_failure", "fixture": "20 Knowledge/Primary Area Is Determined by Intent.md", "expected": "original_restored"}

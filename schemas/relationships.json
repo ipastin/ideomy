@@ -1,0 +1,65 @@
+{
+  "primary_area": {
+    "from": "*",
+    "to": [
+      "area"
+    ],
+    "cardinality": "0..1"
+  },
+  "related_areas": {
+    "from": "*",
+    "to": [
+      "area"
+    ],
+    "cardinality": "0..2"
+  },
+  "projects": {
+    "from": "*",
+    "to": [
+      "project"
+    ],
+    "cardinality": "0..n"
+  },
+  "goals": {
+    "from": "*",
+    "to": [
+      "goal"
+    ],
+    "cardinality": "0..n"
+  },
+  "people": {
+    "from": "*",
+    "to": [
+      "person"
+    ],
+    "cardinality": "0..n"
+  },
+  "organizations": {
+    "from": "*",
+    "to": [
+      "organization"
+    ],
+    "cardinality": "0..n"
+  },
+  "places": {
+    "from": "*",
+    "to": [
+      "place"
+    ],
+    "cardinality": "0..n"
+  },
+  "sources": {
+    "from": "*",
+    "to": [
+      "source"
+    ],
+    "cardinality": "0..n"
+  },
+  "decisions": {
+    "from": "*",
+    "to": [
+      "decision"
+    ],
+    "cardinality": "0..n"
+  }
+}

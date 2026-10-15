@@ -1,0 +1,20 @@
+{
+  "status": "healthy",
+  "core": {
+    "version": "0.1.0",
+    "running": true
+  },
+  "vault": {
+    "reachable": true
+  },
+  "schema": {
+    "status": "valid",
+    "issues": 0
+  },
+  "index": {
+    "status": "current"
+  },
+  "models": {
+    "configured": false
+  }
+}

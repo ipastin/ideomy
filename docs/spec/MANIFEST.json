@@ -1,0 +1,816 @@
+{
+  "name": "Ideomy Project Specification Pack",
+  "version": "0.11.0",
+  "system_spec_version": "1.11.0",
+  "created": "06-10-26 16-40-00",
+  "updated": "12-10-26 16-30-30",
+  "commit": "refactor(brand): adopt Ideomy canonical namespace",
+  "numbered_documents": 23,
+  "files": [
+    {
+      "path": "00_README__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 8277,
+      "sha256": "a514077f303b1441972dc06fa356a5fc8bfc2cfaa288308396682ca292840c8a"
+    },
+    {
+      "path": "01_PRODUCT__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 14234,
+      "sha256": "69a9c0fd8c4dfdf46be4449dd5a2d3d639d62e52df0ad5bb5d1b27e11a1d21e0"
+    },
+    {
+      "path": "02_ARCHITECTURE__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 6506,
+      "sha256": "a59c2613f114320e6ff670786dd7e3c31b67ff12dc9e5117c29c26dcc83c0bf3"
+    },
+    {
+      "path": "03_ONTOLOGY_DATA_MODEL__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 6885,
+      "sha256": "5f8cde4ece2ff1ba4d8b112c34ab951f29272f7dbc391392eabaa691d0edfa29"
+    },
+    {
+      "path": "04_KNOWLEDGE_INTELLIGENCE__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 7071,
+      "sha256": "7fb29fc5bbde26c8a4c47e8a1625939415befd4f98b97cc0e8e7c02b21115ed9"
+    },
+    {
+      "path": "05_AGENT_RUNTIME__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 6968,
+      "sha256": "496c85c778b6961dcf368d8956b0b65e879aab74c3045217c4ebf2f3523224c5"
+    },
+    {
+      "path": "06_SKILLS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 9626,
+      "sha256": "1025b5391de2c75c2431c8c279c3e5fd4094cc2459beb2d186ffcc2107c74614"
+    },
+    {
+      "path": "07_CONTEXT_MEMORY__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 4350,
+      "sha256": "fc91dcdd2b3e9eaa33bdcb12b6675f9c08fa4222913795d6b4de19942d5e08bb"
+    },
+    {
+      "path": "08_SAFETY__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 10307,
+      "sha256": "2a6ab6cf18100fa992bdcfed0a8d47dd96a4c42520376821bbcca5809747a4ee"
+    },
+    {
+      "path": "09_CONNECTORS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 9628,
+      "sha256": "3245811df2aa2e23bde789068af15b972d57c25eb1bc9a1e5bade549d93910ab"
+    },
+    {
+      "path": "10_UX__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 7656,
+      "sha256": "a90a5d05a106517bf492cae8e1cbbb4554514f47b44c2615e874ba2d1049aa03"
+    },
+    {
+      "path": "11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 7741,
+      "sha256": "9d9ed44e19e1be0a93836978d69673bc8c02f6ca6608815df9644d2c274eb5f6"
+    },
+    {
+      "path": "12_EVALS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 5844,
+      "sha256": "93b446177a1427f501a2b4c426fa4ba4e9894e8f9d1badcd4fd349648da2a1c9"
+    },
+    {
+      "path": "13_ADR__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 25072,
+      "sha256": "5694fafc2a9827427d4c0b45df1a1a10b73e5b434508e60359e48d1a45e284fc"
+    },
+    {
+      "path": "14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 9490,
+      "sha256": "d6ed92940710d3b716f5e8d6da694d938bbf9bb7ac0f382228d06cd689f3dad2"
+    },
+    {
+      "path": "15_DELIVERY__created-08-10-26_19-00-04__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 13678,
+      "sha256": "aa80e65f90c6d00f24f46ec68aa77fd8499abd1401d93a4198f698611f11d461"
+    },
+    {
+      "path": "16_BOOTSTRAP__created-09-10-26_16-54-26__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 12924,
+      "sha256": "d3ec8eb2902c7c902b5c002f618a6143cc69b64ef9007ed9eba8fdeb005da17a"
+    },
+    {
+      "path": "17_MODEL_GATEWAY__created-10-10-26_09-37-47__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 13825,
+      "sha256": "d6e8a10420f3c2c818698100ed8697735b1f9f5c003ed417150fee02ee51714e"
+    },
+    {
+      "path": "18_CLI__created-10-10-26_14-47-32__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 24727,
+      "sha256": "265ff314cd132a48c84a750a2e4a5dddc05058135b6df47afd54541fdb0e1476"
+    },
+    {
+      "path": "19_OBSIDIAN_PLUGIN__created-10-10-26_14-56-08__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 29941,
+      "sha256": "e613e5def89f63d0e868020a819d3871c808cc90818f9d186aa4e309f1eefa91"
+    },
+    {
+      "path": "20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 10465,
+      "sha256": "dad8795fa3c0cf03c75974d4d192a07e976e5a9cbd23620807b8081fccfbe058"
+    },
+    {
+      "path": "21_CORE_PROTOCOL__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 8516,
+      "sha256": "a79f1c7d68e7dbec148309603ce8f5ea55c882d02b3b6eaf2a1e33123b45853f"
+    },
+    {
+      "path": "22_ENGINEERING_FOUNDATION__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
+      "bytes": 12227,
+      "sha256": "1e45fa8cbf65e7cc60d7adc0c0cc3b6a17f0239ce4f5a0d689d5da4fa57e5cca"
+    },
+    {
+      "path": "AGENTS.md",
+      "bytes": 9490,
+      "sha256": "d6ed92940710d3b716f5e8d6da694d938bbf9bb7ac0f382228d06cd689f3dad2"
+    },
+    {
+      "path": "READINESS_VALIDATION.json",
+      "bytes": 2443,
+      "sha256": "3290b8f6afae22329f6db06be4a2c1f50e8dda1ec49bf1098a74a3b51814a716"
+    },
+    {
+      "path": "contracts/README.md",
+      "bytes": 174,
+      "sha256": "52c62cc1a3121fa8c5a0d048e1ddf84cb0c8d32c82b03134c2d459e5c3e1eb60"
+    },
+    {
+      "path": "contracts/capture/web-capture-v1.example.json",
+      "bytes": 430,
+      "sha256": "bb36137f4f66ec1e3af3fe87d7dbc7a6a5e0d970abe4babc8e9bfd76eed9d6eb"
+    },
+    {
+      "path": "contracts/capture/web-capture-v1.schema.json",
+      "bytes": 1183,
+      "sha256": "6c4c9c84bc0d54d34ede174482ef6eff672d5ce87b937373e57455176e5de952"
+    },
+    {
+      "path": "contracts/examples/error-envelope.json",
+      "bytes": 251,
+      "sha256": "9884040106d98afb147bff698c578e485a9adad9099709cfe94b8c8159d41dbe"
+    },
+    {
+      "path": "contracts/examples/handshake-request.json",
+      "bytes": 349,
+      "sha256": "4b3d606eb7f9bbaed314819fe2b79b647081e5d2f6ed6edf08f1aaebf117c911"
+    },
+    {
+      "path": "contracts/examples/handshake-response.json",
+      "bytes": 400,
+      "sha256": "ae9483ae8c14bb3494ad9ca9d6239e4741b856e2facb06449a565b7edfb417fa"
+    },
+    {
+      "path": "contracts/examples/operation.json",
+      "bytes": 280,
+      "sha256": "78e61dc5737c4901b242db482a6aa63240ee923e23b7d7b69cdbf14e5f06a34e"
+    },
+    {
+      "path": "contracts/examples/review-item.json",
+      "bytes": 373,
+      "sha256": "2da8af1d505e5fb1bdd1718be7fb84d8f1159ba228ef3831aa8aea06e35efa3d"
+    },
+    {
+      "path": "contracts/examples/status.json",
+      "bytes": 270,
+      "sha256": "24b79728a5dc055d302f2d62705cec91d0584437a62070322ab5fd6f527367cc"
+    },
+    {
+      "path": "contracts/protocol/v1/error-envelope.schema.json",
+      "bytes": 890,
+      "sha256": "d4eca0be06ed2961984c9571dd784f431370e94ef8cf2f750ca2ca5fe248a9b3"
+    },
+    {
+      "path": "contracts/protocol/v1/handshake-request.schema.json",
+      "bytes": 989,
+      "sha256": "792deace6a2a5190284395fe3dba570c6bec8082da8a524cf0bedfbe1c6909d2"
+    },
+    {
+      "path": "contracts/protocol/v1/handshake-response.schema.json",
+      "bytes": 1124,
+      "sha256": "5661058303a38f8fc180eb6113473b85925e9b45d262fa2682a262afb93212c1"
+    },
+    {
+      "path": "contracts/protocol/v1/operation.schema.json",
+      "bytes": 965,
+      "sha256": "eed9a1460055045561c6363ecbaffa9640685bbf6572e48246af57e015dccec2"
+    },
+    {
+      "path": "contracts/protocol/v1/review-item.schema.json",
+      "bytes": 1002,
+      "sha256": "1b4b9eebb1d04419254fabef0e3469198adb556f78b837c47fee3699660c097e"
+    },
+    {
+      "path": "contracts/protocol/v1/status.schema.json",
+      "bytes": 644,
+      "sha256": "20518cd703a31fecf41a40bb67a5ac3ad95fac1354da6603b412408b4117c351"
+    },
+    {
+      "path": "evals/README.md",
+      "bytes": 862,
+      "sha256": "6fe4e327e9baf910c5b03e1c3a9a3ac492a35cbd0a8a1f3a5b4b85fbb1c79338"
+    },
+    {
+      "path": "evals/golden/classification.jsonl",
+      "bytes": 12215,
+      "sha256": "bd50b5363eb495caa89aa8af62982db397c226dbf77e8a2d3705ba34b6f96439"
+    },
+    {
+      "path": "evals/golden/entity_resolution.jsonl",
+      "bytes": 5496,
+      "sha256": "3332180b858f846662f2985b73a322830cb3b1e3c8c6defc4c14290ea9ec423a"
+    },
+    {
+      "path": "evals/golden/mutation.jsonl",
+      "bytes": 489,
+      "sha256": "37f2d0b5bc601a67f500f4ac51635669cdd6b6cfd7d26d1058cd0c529fce81b7"
+    },
+    {
+      "path": "evals/golden/retrieval.jsonl",
+      "bytes": 1068,
+      "sha256": "85a4d148b7a3bf3c64dea813b35b68f97a21907b1d5d14f0dfdca42abc47fcc1"
+    },
+    {
+      "path": "evals/golden/security.jsonl",
+      "bytes": 608,
+      "sha256": "8538289ae2825aef1e6e3fb81a3ae46729b28fae98ca0de9cf826baafaf05eeb"
+    },
+    {
+      "path": "evals/golden/web_capture.jsonl",
+      "bytes": 1105,
+      "sha256": "14ec5426dd083be3b173eeaf9d39ba62d2bbd661603423bb5276b3c4e856051b"
+    },
+    {
+      "path": "evals/thresholds.json",
+      "bytes": 954,
+      "sha256": "202d03ab9d7cc116c3781c89519da217dc87ca2b603ed18be2193fd026218ac9"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Business & Entrepreneurship.md",
+      "bytes": 313,
+      "sha256": "2443977556267b274f5fb9c4f2550b54d04b0be739689546aa0ab6623f60bc70"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Career.md",
+      "bytes": 286,
+      "sha256": "d0d902ffc0fada2edd9c2776c055cbcedd01f88aa8306b75ea7088fa2b90c7d2"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Creative & Side Projects.md",
+      "bytes": 310,
+      "sha256": "62cb0eabe0f4c2c7d2562ed6d1d59aea8d89351c2d1a953eafea425966acf80a"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Digital Life.md",
+      "bytes": 307,
+      "sha256": "28eee66c5265b32ef97400977fe0992e7e322afcd0e703408355bacb447c99a4"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Health & Energy.md",
+      "bytes": 298,
+      "sha256": "c5b355aa74618add821a49c03d961ec71891d848938672614a17faf68f3bf76a"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Home & Household.md",
+      "bytes": 311,
+      "sha256": "8cc21cc8a83b212c3eddb64315009e08176b6b7680a20778a1f3a891e5070bd1"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Learning & Development.md",
+      "bytes": 305,
+      "sha256": "e08f89293b6509be8fab13d62f7425eb2ad427ba676f463ab04108b5dc9f2e48"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Legal & Administration.md",
+      "bytes": 314,
+      "sha256": "7e723abcbfcbec603dbc757c58f86cd3f004c903100434a3f1f46617794bae82"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Leisure & Culture.md",
+      "bytes": 300,
+      "sha256": "a50437daff6cf1a968490e38d68d5f6d3aa58c08fedf77f0f7fcb92c64d35b13"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Money & Assets.md",
+      "bytes": 287,
+      "sha256": "6718676bbb1c9fee302b6fe06564f687452648468419d3a4641160275ae27864"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Personal Brand & Reputation.md",
+      "bytes": 307,
+      "sha256": "6d27a24104203853d5a89a04908ba82912cc4f78e8ef7e6dd9dadd91ffb9bfbd"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Professional Practice.md",
+      "bytes": 301,
+      "sha256": "96935b0f11dc6eafd41b56c0d5270bc109f7b1561be05bb84add5edba4f1a3cd"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Relationships & Family.md",
+      "bytes": 302,
+      "sha256": "59b91b9bdd645997fe8b9850074947aae11d281b07486a4bb47397c54ec3f99b"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Self & Direction.md",
+      "bytes": 299,
+      "sha256": "8f307b929d30aefeaf2d3cc7acbff7d51e5f7b7f72e5c438db223dc63ef74f39"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Social & Community.md",
+      "bytes": 298,
+      "sha256": "adfa6daa8c739d50cac2f79fda8d9bab2a0730aa0a86569de111971989521d42"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Technology & AI.md",
+      "bytes": 310,
+      "sha256": "c0c63ca784587ff2e38a1fd39f37fe7294906d830fe91f3987118b63fa8693ca"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Areas/Travel & Mobility.md",
+      "bytes": 309,
+      "sha256": "9d57ba966fac60b8190fdd39a647ce0f68e47279b85c6450fbf314cfd51ad75a"
+    },
+    {
+      "path": "fixtures/test-vault/00 System/Synthetic System Note.md",
+      "bytes": 282,
+      "sha256": "2eb6422edae89833878f46636ae9ac33006cfbb6720ae7f291dec5ac01cdbe55"
+    },
+    {
+      "path": "fixtures/test-vault/01 Inbox/Web/Synthetic Browser Capture.md",
+      "bytes": 641,
+      "sha256": "a9086980c1efd70b23d1189a0738ddbc51ecfa172362a2e84a87f50a717dd7ae"
+    },
+    {
+      "path": "fixtures/test-vault/10 Projects/Build Ideomy v1.md",
+      "bytes": 599,
+      "sha256": "53850bb27ecbb391df16d23d271020b57cf3341d5755c3512cc5ebd324cf7767"
+    },
+    {
+      "path": "fixtures/test-vault/11 Goals/Build Reliable Personal Knowledge System.md",
+      "bytes": 326,
+      "sha256": "432e637360fb1e9456e1e041542e07798924dfdc3c774e94276101458b807f8a"
+    },
+    {
+      "path": "fixtures/test-vault/20 Knowledge/Primary Area Is Determined by Intent.md",
+      "bytes": 542,
+      "sha256": "51854508f5fd56adebeb2f623f34c627f20664d595a522c71118bc40ee4de159"
+    },
+    {
+      "path": "fixtures/test-vault/20 Knowledge/Private Local Only.md",
+      "bytes": 372,
+      "sha256": "f57c4095abae8e06e03d6ec92891abaa5bec49a36c02612bbccdbd2dda325396"
+    },
+    {
+      "path": "fixtures/test-vault/20 Knowledge/Unmanaged Existing Note.md",
+      "bytes": 89,
+      "sha256": "1b5a9ddfca0fd4a7bcecf0ce5a410aa8877a9f92288e1c5bb9c22145b2455cf1"
+    },
+    {
+      "path": "fixtures/test-vault/21 Sources/Article — Intent and Information Architecture.md",
+      "bytes": 507,
+      "sha256": "80da712a46a813da77d5b9bdcedc02862b734be5c099148a953a1d0e52c476eb"
+    },
+    {
+      "path": "fixtures/test-vault/21 Sources/Malicious Prompt Injection Source.md",
+      "bytes": 169,
+      "sha256": "4f034c014f876d2d2303d1ee6388523dc8ba59dc20091d21765c728c6dc22a52"
+    },
+    {
+      "path": "fixtures/test-vault/30 People/Alex Example.md",
+      "bytes": 292,
+      "sha256": "123fc28e17402228e572c8b886ab61954cd616413e8039cc7ea5d8ee1d04170e"
+    },
+    {
+      "path": "fixtures/test-vault/31 Organizations/Example Labs.md",
+      "bytes": 315,
+      "sha256": "47b11efdfeb475b71b0c6002b98f77c6f4cf5017fd6cb27efd138576b25d1464"
+    },
+    {
+      "path": "fixtures/test-vault/32 Places/Example City.md",
+      "bytes": 283,
+      "sha256": "a7f1f9243bf427d83e46314adbe4dbce7a0cb40908bc2e5df1f39fa80ee162ea"
+    },
+    {
+      "path": "fixtures/test-vault/40 Decisions/2026-10-03 — Use External Personal Vault.md",
+      "bytes": 404,
+      "sha256": "e2f460154308bc10be3648fc91502b0dce0328b28ec821ad609b0bff4e9cda38"
+    },
+    {
+      "path": "fixtures/test-vault/41 Meetings/2026-10-04 — Architecture Review — Alex Example.md",
+      "bytes": 432,
+      "sha256": "9827e5f9605a33308379b91dacfc72d031316025cc4a789743b7dd442e3992ac"
+    },
+    {
+      "path": "fixtures/test-vault/42 Events/2026-10-05 — Synthetic Release.md",
+      "bytes": 317,
+      "sha256": "3552088f36ffdf07cf7d19ce101e0d61cc2bb36a5996022f1b54c22c659273f9"
+    },
+    {
+      "path": "fixtures/test-vault/43 Records/Synthetic Evidence.md",
+      "bytes": 350,
+      "sha256": "8aa04237156d9e10af695494fa8b229b96bd4ec4f1059562187419230fd94609"
+    },
+    {
+      "path": "fixtures/test-vault/50 Assets/Test Laptop.md",
+      "bytes": 340,
+      "sha256": "4c80f8de92877341cc678aa682f28c913f31966da435e0d7514e8b9567cf6620"
+    },
+    {
+      "path": "fixtures/test-vault/60 Journal/Daily/2026-10-06.md",
+      "bytes": 278,
+      "sha256": "cf0f4d5e31a3445675b610f84567c95bbe06983172366cfbbb5eb4c86e9081a1"
+    },
+    {
+      "path": "fixtures/test-vault/90 Archive/INVALID — Duplicate ID.md",
+      "bytes": 321,
+      "sha256": "893699230d25078cfaaa0aa1d01ae9c9eee5d131e4059c31f17dfe157cfbf14c"
+    },
+    {
+      "path": "fixtures/test-vault/FIXTURE_MANIFEST.json",
+      "bytes": 146,
+      "sha256": "66541b207498b96658e1ff9126942504ef5b3414802cae081bbc0c70d09296bd"
+    },
+    {
+      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v1.11.0.md",
+      "bytes": 261731,
+      "sha256": "b25faff45f9680a404f98bae961a31da50623a5a8cc7f5ff2a994564b1b48bfe"
+    },
+    {
+      "path": "schemas/README.md",
+      "bytes": 251,
+      "sha256": "0b9d5e3f964b0b3cee74db7a7a1db04a1260be1e71642eed22dc97ce76a35245"
+    },
+    {
+      "path": "schemas/base.schema.json",
+      "bytes": 3459,
+      "sha256": "429cdd24d1005fbda0174ba5ff0e65ed0e4a8a5c12e31b564ebe419c3a386f22"
+    },
+    {
+      "path": "schemas/entities/area.schema.json",
+      "bytes": 1185,
+      "sha256": "9dc005d35107ccad2401f331e6e6314257268a24240bb57b6c8a3ae1849e484d"
+    },
+    {
+      "path": "schemas/entities/asset.schema.json",
+      "bytes": 1574,
+      "sha256": "758bbacffb9322225c7c3ca8cc43c612135acc9df1c0436270a793ab460a27d2"
+    },
+    {
+      "path": "schemas/entities/decision.schema.json",
+      "bytes": 1457,
+      "sha256": "d75e7452269887e2c02e3f617f7f3e461c857eb7a5a9c320c7cd67269688aaa8"
+    },
+    {
+      "path": "schemas/entities/event.schema.json",
+      "bytes": 905,
+      "sha256": "ce9494908e36b644461cd438f00f82cd0a243b459e65c2b89c57ce21a2703b9b"
+    },
+    {
+      "path": "schemas/entities/goal.schema.json",
+      "bytes": 1167,
+      "sha256": "63a68dbec5e0285075db28c9d68bae5c2387c25b29682b711dfcf590cbe86a50"
+    },
+    {
+      "path": "schemas/entities/journal.schema.json",
+      "bytes": 1432,
+      "sha256": "0a9ee698b24a53567be08b7c62e5041d23632d2d5a61cffd95c3ea9a79e5da56"
+    },
+    {
+      "path": "schemas/entities/knowledge.schema.json",
+      "bytes": 1021,
+      "sha256": "01231ea9fd2eed58da8ae9e69aa5b5bf78a7ecd179cf4c8b407523711e99c9d9"
+    },
+    {
+      "path": "schemas/entities/meeting.schema.json",
+      "bytes": 1245,
+      "sha256": "f2eca84a64a768ca7696112dc7fa1af6bc3112bde64835e9469d337a698e062f"
+    },
+    {
+      "path": "schemas/entities/organization.schema.json",
+      "bytes": 1055,
+      "sha256": "844d3a7a3bc4a9b4f7343fe1df63118f06a1e72328132cab22cc678c8dab9510"
+    },
+    {
+      "path": "schemas/entities/person.schema.json",
+      "bytes": 1197,
+      "sha256": "afd1d8ebca6888df052ef080166ad3f5a10f95e84070075f90d3d08821b2dea5"
+    },
+    {
+      "path": "schemas/entities/place.schema.json",
+      "bytes": 1106,
+      "sha256": "1257810858c78f38e02f54a20cacb843ded45bb012fab5c320a49d2ce94dad27"
+    },
+    {
+      "path": "schemas/entities/project.schema.json",
+      "bytes": 1592,
+      "sha256": "19de21a859b185b49d1ec55ff74b7cdc98338d4177fd198acc691b4ca0484efa"
+    },
+    {
+      "path": "schemas/entities/record.schema.json",
+      "bytes": 1000,
+      "sha256": "e586aa43b8c78359d3b568535cc5dd0250be804656905957d291d5a6933da224"
+    },
+    {
+      "path": "schemas/entities/source.schema.json",
+      "bytes": 2094,
+      "sha256": "b036472166755497b6a5a395572cf599586aa30989800f6e8e16997cd3916de2"
+    },
+    {
+      "path": "schemas/entities/system.schema.json",
+      "bytes": 1190,
+      "sha256": "f321da515a732c30af7cfa5501f7db9e6547e40991232dfdfb6907f95146bb3b"
+    },
+    {
+      "path": "schemas/registry.json",
+      "bytes": 5362,
+      "sha256": "545e4a100dff7b25044c616478d1945d7af1bb1b2158e6f97bb057142706a22b"
+    },
+    {
+      "path": "schemas/relationships.json",
+      "bytes": 894,
+      "sha256": "6bbdc74ebd6e242ac4ce7443f8f19118fdee73c33dff8bf2ccd34d4216201ade"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Business & Entrepreneurship.md",
+      "bytes": 409,
+      "sha256": "9f8ed8176280e2c1b4f4098758f1ae6d09e4e9df9c4db6f4e9be14e6bdd660ff"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Career.md",
+      "bytes": 382,
+      "sha256": "6e31b8e1ff61da750f7e958d3c1adf78319c68f6b79b1ea4c4d732280f265201"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Creative & Side Projects.md",
+      "bytes": 406,
+      "sha256": "225b44eba17a52ad2e72f7ee77d8426baf0c4186b6149090d3a42dbe10370bae"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Digital Life.md",
+      "bytes": 403,
+      "sha256": "e835fd97928c087668deadb5ae0fb4707da3e91d58695a2296f048afae3a48ae"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Health & Energy.md",
+      "bytes": 394,
+      "sha256": "f03e3ca1c9bc4b7456fbffd08478f8c7234a419a3fb770af05a91086dc23d329"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Home & Household.md",
+      "bytes": 407,
+      "sha256": "7b2e60a79ffacbf516131ec3d7764606750c7afc9852009a3ddfdbb6d9a132b2"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Learning & Development.md",
+      "bytes": 401,
+      "sha256": "12c2e213ba4e9ad2014f6c4323f32a10334493785f3879baf77ccb61cc88b27a"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Legal & Administration.md",
+      "bytes": 410,
+      "sha256": "1cd50e33c1be0ab7fd376b2b2ddc529199b2fa241bf721c4185261e8256036b4"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Leisure & Culture.md",
+      "bytes": 396,
+      "sha256": "58ecdbddb64fff2514e91617c3faf0e73b6f5a5029d4f05a5eda3f73372efd9f"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Money & Assets.md",
+      "bytes": 383,
+      "sha256": "f5e072d29401dc7d3d47108931c82eaf50199282dd0a82f9f7752761aca37f0a"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Personal Brand & Reputation.md",
+      "bytes": 403,
+      "sha256": "f35eb5c025dc4b029a9609f6019db16d8d18767c9e719370bd406a1ac673a07c"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Professional Practice.md",
+      "bytes": 397,
+      "sha256": "18b5df48a22198814b1483f47bed472cd2d27a6bb1b9a5642ee60c73c58a24a5"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Relationships & Family.md",
+      "bytes": 398,
+      "sha256": "2fd2edbd4c38248bab5e96c98cbbc8093d31fe75ddfc1e0d7ac3a7f657b99daf"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Self & Direction.md",
+      "bytes": 395,
+      "sha256": "2b927b31ede9408fef25b2a20e8e818f5ec04e0c3b2c9434729fa5c8737c18e9"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Social & Community.md",
+      "bytes": 394,
+      "sha256": "11584d1fb3b94844ca35402c40fcb8ecb88613e48369fb32982c7c3abe090033"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Technology & AI.md",
+      "bytes": 406,
+      "sha256": "2a678c2362e6fc0f9e54df0bc2a141d8cba34306447bd5f3c696f1fcdf93692f"
+    },
+    {
+      "path": "vault-template/00 System/Areas/Travel & Mobility.md",
+      "bytes": 405,
+      "sha256": "58b897fb6a3f37c8b059ac68eec1f2162a5743e668885e6578f49a9041144166"
+    },
+    {
+      "path": "vault-template/00 System/Dashboards/Knowledge.base",
+      "bytes": 327,
+      "sha256": "ce0a41f1d3f457d549a899721002f5711b1875288ba79d3dc456dcff5159e2ee"
+    },
+    {
+      "path": "vault-template/00 System/Dashboards/Projects.base",
+      "bytes": 333,
+      "sha256": "db0fb7eb414d0c173735dd491260c78f7418b2c60b3ab857aff37ffac3752d55"
+    },
+    {
+      "path": "vault-template/00 System/Dashboards/Review Queue.base",
+      "bytes": 169,
+      "sha256": "5133f4b5288225fa4fbabeb27f2bb682c5939ad8117e3f36cf8af1c299d92935"
+    },
+    {
+      "path": "vault-template/00 System/Dashboards/Sources.base",
+      "bytes": 335,
+      "sha256": "eacc6b502020ea32a3425ea7446b12f26299f18ca3eb8b0de5b52f3773046f40"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Business & Creation.md",
+      "bytes": 59,
+      "sha256": "40a4dfb40167f3bb30cf7ca09d2567040a20e92b67b768d8b1d6da9fe881b7c1"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Environment & Infrastructure.md",
+      "bytes": 68,
+      "sha256": "e8bd82c2bda40b771a238c657c7866d5fb8da4fff3d500e8e45c540289b2fb8e"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Mobility & Administration.md",
+      "bytes": 65,
+      "sha256": "3bdf8303c7548746ead78cf1e0c1f0d32dbb222343040d5c947ed5688809e981"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Relationships.md",
+      "bytes": 53,
+      "sha256": "5f45bc89dd062b5b5e378bc3ca144e1a0272c6edbbc8542e219fed35a0054b3b"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Self & Wellbeing.md",
+      "bytes": 56,
+      "sha256": "fd7b1a525563e106228d2ddcd587380c45266b1137d190a1959e27e8ab62a0f6"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Wealth.md",
+      "bytes": 46,
+      "sha256": "e4336824af421773f7365c75b9be905afb73edb33a2fbf768ae34a464d92374b"
+    },
+    {
+      "path": "vault-template/00 System/Domains/Work & Career.md",
+      "bytes": 53,
+      "sha256": "bd283c6bfc3a7aec8f4c21e4f05848740890b1c3390c998288f5d844d16375ac"
+    },
+    {
+      "path": "vault-template/00 System/Home.md",
+      "bytes": 367,
+      "sha256": "075dd7639fc3f540d3d7dd968b56a11ef4ddc354b336085452d79cb8b70d983b"
+    },
+    {
+      "path": "vault-template/00 System/Taxonomy/Areas.md",
+      "bytes": 831,
+      "sha256": "d5fa7193e2090b5de9899837ccd0268eeb4da044ef41d54691da612515128dc3"
+    },
+    {
+      "path": "vault-template/00 System/Taxonomy/Entity Types.md",
+      "bytes": 188,
+      "sha256": "f9893d6859b93b5f64022945aa31a6e34e2a5686f802752cd97508a60b0b1941"
+    },
+    {
+      "path": "vault-template/00 System/Taxonomy/Properties.md",
+      "bytes": 153,
+      "sha256": "4a8b81525adb088681922504e8ad29a86b610c33cf9b650bf1d6df6233a2c2f5"
+    },
+    {
+      "path": "vault-template/00 System/Taxonomy/Sensitivity.md",
+      "bytes": 137,
+      "sha256": "9d60e430351495163694ba9f84cae3d4adeea7da0061227bdfd8255cc6bd4a39"
+    },
+    {
+      "path": "vault-template/00 System/Taxonomy/Statuses.md",
+      "bytes": 758,
+      "sha256": "c06fa5dfc5dc7f2f8a8f472ffd9f8eaf8e5444d4260b67fcc4f276dc0d308334"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Area.md",
+      "bytes": 304,
+      "sha256": "2cd14a0a815639b987658b7893598841c015de79a93127855246fbd3b3551ee3"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Asset.md",
+      "bytes": 345,
+      "sha256": "af6a3a9e08f5d11adabc7270ba7aaa65ecf6e7d114f790a997cb78e030f7e8c5"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Decision.md",
+      "bytes": 418,
+      "sha256": "a6a99c81ede75828d5c5459d1eefff407bf9f19bd95b50682c7ad0353298f35c"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Event.md",
+      "bytes": 300,
+      "sha256": "53cf9f2bb799f9720d1d1350a785778b576bf01a3b1ce03c2477a30006b78aef"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Goal.md",
+      "bytes": 353,
+      "sha256": "89e33a8c5ab7646a3dc85e87a0d7e146b8184b18c3bd6e2a2bbd393a03de9e60"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Inbox.md",
+      "bytes": 56,
+      "sha256": "4d7138605ace7429e18ed3af486e996df48a28a985a2db43911d5a3ec6e7be2e"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Journal.md",
+      "bytes": 265,
+      "sha256": "f12e5990becc8ab2a93968250cfd1166fa63e8dbc4d3a9a0c41f7c0a96b6a930"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Knowledge.md",
+      "bytes": 332,
+      "sha256": "122098934d3acae90a52ad36fb801ff2de48ac3d22749c1b65fdb3e79bdf995d"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Meeting.md",
+      "bytes": 328,
+      "sha256": "b10eb5bdb5a82da0e076238520e0c9343a21dfc1f24b2ec8ab22ec35534f6fea"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Organization.md",
+      "bytes": 290,
+      "sha256": "65752081082ab2ab65b2a838b1206201eba1fd010ccf76dce4be0d507c90b3d3"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Person.md",
+      "bytes": 340,
+      "sha256": "224596e312d9d866704deb6b370989936c5b37349d61741a08270788242c80f5"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Place.md",
+      "bytes": 279,
+      "sha256": "6823f3214ca9920f8310eb55ae04e9e36e4980a5e273f945496dc6c73cc01f7f"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Project.md",
+      "bytes": 448,
+      "sha256": "53f9284289e60c217abd90a879a73f09ecaf7b1ca46d416125cff05fe7fa1c4d"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Record.md",
+      "bytes": 273,
+      "sha256": "78b8214db393e43d26c20703a52d4184282f38e61fe607e7173edb9155e565c7"
+    },
+    {
+      "path": "vault-template/00 System/Templates/Source.md",
+      "bytes": 350,
+      "sha256": "d8ef22a19945cf7c39af1a71b59cad6336c053e0bab0c70ad4e50decbef3d883"
+    },
+    {
+      "path": "vault-template/00 System/Templates/System.md",
+      "bytes": 293,
+      "sha256": "30e820904ff31946f851d1978adf3bdd6b2460ba177d39e0b995ad14d1638376"
+    },
+    {
+      "path": "vault-template/00 System/Workflows/Web Capture.md",
+      "bytes": 314,
+      "sha256": "c4d71ba11ddfffd802b87d4fae5ac5e27ad7c045d269c2a8d811059c0d537e4c"
+    },
+    {
+      "path": "vault-template/README.md",
+      "bytes": 380,
+      "sha256": "751e4000c715647809f7361fd0122c6d6f56d0801f3007831a9f4d11f3004e51"
+    },
+    {
+      "path": "web-clipper/README.md",
+      "bytes": 1654,
+      "sha256": "f5c9d5f5bd80c3df2f574eb79598a146b80702bfdf95112366b6decc242e5b11"
+    },
+    {
+      "path": "web-clipper/templates/ideomy-highlights.json",
+      "bytes": 1540,
+      "sha256": "6b70dee162912a89adc01142cc7a795856f1c2eef64a3a85a5ad204cb41671a6"
+    },
+    {
+      "path": "web-clipper/templates/ideomy-selection.json",
+      "bytes": 1494,
+      "sha256": "7fdb3821e80638471d86cb6d0ea53a714a3566dfbd7f12327fa9f1b6893b530d"
+    },
+    {
+      "path": "web-clipper/templates/ideomy-web.json",
+      "bytes": 1571,
+      "sha256": "987d93a4f44c5be808147ba99c121ef16ffd58a089667adac4f2632de8d18b09"
+    }
+  ]
+}

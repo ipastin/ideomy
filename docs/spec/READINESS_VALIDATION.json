@@ -1,0 +1,49 @@
+{
+  "pack_version": "0.11.0",
+  "system_spec_version": "1.11.0",
+  "timestamp": "12-10-26 16-30-30",
+  "readiness": "READY_FOR_M0_IMPLEMENTATION",
+  "checks": {
+    "numbered_docs": 23,
+    "agent_sync": true,
+    "entity_schemas": 15,
+    "protocol_schemas": 6,
+    "classification_golden_cases": 60,
+    "entity_resolution_golden_cases": 30,
+    "retrieval_golden_cases": 6,
+    "security_golden_cases": 5,
+    "mutation_golden_cases": 3,
+    "vault_template_files": 52,
+    "test_vault_files": 37,
+    "stale_current_markers": 0,
+    "canonical_repo": "ideomy",
+    "primary_alpha_platform": "macOS",
+    "core_protocol_major": 1,
+    "web_clipper_templates": 3,
+    "web_capture_golden_cases": 7,
+    "web_capture_contract_schema": true,
+    "canonical_product": "Ideomy",
+    "canonical_cli": "ideomy",
+    "legacy_namespace_current_occurrences": 0
+  },
+  "remaining_non_blocking_before_later_milestones": [
+    "SQLite physical DDL/migration details are finalized at M1 before index implementation.",
+    "Public Beta standalone Core/CLI packaging/signing mechanism is selected before distribution gate.",
+    "Skill-specific typed contracts/golden corpora expand before each M2 AI capability.",
+    "Windows/Linux lifecycle adapters are required before claiming public cross-platform Core support.",
+    "A first-party Ideomy browser extension remains deferred until bidirectional browser-context value is validated beyond clipping parity."
+  ],
+  "current_sources_verified_2026_10_10": [
+    "Node.js official downloads/releases: Node 24 LTS, Node 26 Current.",
+    "TypeScript official blog: TypeScript 7.0 stable; 7.0 has no legacy programmatic compiler API and supports official TypeScript 6 compatibility package.",
+    "pnpm official releases: pnpm 12 stable/current major; 12.10.0 published 2026-10-06.",
+    "Vitest official blog: Vitest 5 stable.",
+    "Zod official blog: Zod 4.6 stable.",
+    "Biome official blog/docs: Biome 2.5 current release line.",
+    "Obsidian official changelog: 1.14 public on 2026-10-05; Desktop includes fixes through 1.14.4."
+  ],
+  "current_sources_verified_2026_10_12": [
+    "Obsidian Web Clipper official docs: browser support, local Vault capture/privacy, templates import/export, variables/content/selection/highlights, URL/schema triggers and safe_name filter.",
+    "Obsidian Web Clipper official GitHub repository: official open-source Web Clipper and multi-browser distribution."
+  ]
+}

@@ -1,0 +1,60 @@
+{"id": "cls-001", "input": "Сравнить зарплатные вилки Senior Product Designer", "expected": {"primary_area": "[[Career]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-002", "input": "Подготовить ответы к собеседованию в продуктовую компанию", "expected": {"primary_area": "[[Career]]", "type": "project"}, "review_expected": false}
+{"id": "cls-003", "input": "Адаптировать резюме под вакансию Lead Product Designer", "expected": {"primary_area": "[[Career]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-004", "input": "Собрать список компаний для следующего карьерного шага", "expected": {"primary_area": "[[Career]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-005", "input": "Как проводить usability test для нового onboarding", "expected": {"primary_area": "[[Professional Practice]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-006", "input": "Сформулировать правила naming для design tokens", "expected": {"primary_area": "[[Professional Practice]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-007", "input": "Разобрать accessibility паттерны для modal dialogs", "expected": {"primary_area": "[[Professional Practice]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-008", "input": "Встроить Figma MCP в ежедневный дизайн-процесс", "expected": {"primary_area": "[[Professional Practice]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-009", "input": "Переписать публичный кейс портфолио", "expected": {"primary_area": "[[Personal Brand & Reputation]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-010", "input": "Обновить био на личном сайте", "expected": {"primary_area": "[[Personal Brand & Reputation]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-011", "input": "Подготовить статью о продуктовом дизайне", "expected": {"primary_area": "[[Personal Brand & Reputation]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-012", "input": "Сформулировать профессиональное позиционирование", "expected": {"primary_area": "[[Personal Brand & Reputation]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-013", "input": "Определить pricing для собственной дизайн-услуги", "expected": {"primary_area": "[[Business & Entrepreneurship]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-014", "input": "Проверить спрос на новый SaaS", "expected": {"primary_area": "[[Business & Entrepreneurship]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-015", "input": "Подготовить коммерческое предложение клиенту", "expected": {"primary_area": "[[Business & Entrepreneurship]]", "type": "project"}, "review_expected": false}
+{"id": "cls-016", "input": "Посчитать unit economics небольшого продукта", "expected": {"primary_area": "[[Business & Entrepreneurship]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-017", "input": "Разобраться как работает MCP transport", "expected": {"primary_area": "[[Technology & AI]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-018", "input": "Настроить локальный LLM через Ollama", "expected": {"primary_area": "[[Technology & AI]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-019", "input": "Спроектировать архитектуру AI agent runtime", "expected": {"primary_area": "[[Technology & AI]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-020", "input": "Настроить VPS для self-hosted сервиса", "expected": {"primary_area": "[[Technology & AI]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-021", "input": "Составить программу изучения TypeScript", "expected": {"primary_area": "[[Learning & Development]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-022", "input": "Пройти курс по product analytics", "expected": {"primary_area": "[[Learning & Development]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-023", "input": "Запланировать изучение английской грамматики", "expected": {"primary_area": "[[Learning & Development]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-024", "input": "Собрать skill gap по AI engineering", "expected": {"primary_area": "[[Learning & Development]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-025", "input": "Проверить распределение личного инвестиционного портфеля", "expected": {"primary_area": "[[Money & Assets]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-026", "input": "Составить бюджет на следующий месяц", "expected": {"primary_area": "[[Money & Assets]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-027", "input": "Сравнить условия личных банковских вкладов", "expected": {"primary_area": "[[Money & Assets]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-028", "input": "Зафиксировать крупную покупку ноутбука", "expected": {"primary_area": "[[Money & Assets]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-029", "input": "Записать план сна на неделю", "expected": {"primary_area": "[[Health & Energy]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-030", "input": "Сохранить результат личного анализа крови", "expected": {"primary_area": "[[Health & Energy]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-031", "input": "Составить план тренировок для собственного здоровья", "expected": {"primary_area": "[[Health & Energy]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-032", "input": "Отследить изменения веса", "expected": {"primary_area": "[[Health & Energy]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-033", "input": "Настроить резервное копирование личных файлов", "expected": {"primary_area": "[[Digital Life]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-034", "input": "Проверить подписки на цифровые сервисы", "expected": {"primary_area": "[[Digital Life]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-035", "input": "Перенести домен между регистраторами", "expected": {"primary_area": "[[Digital Life]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-036", "input": "Настроить password manager", "expected": {"primary_area": "[[Digital Life]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-037", "input": "Записать гарантию на стиральную машину", "expected": {"primary_area": "[[Home & Household]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-038", "input": "Запланировать ремонт комнаты", "expected": {"primary_area": "[[Home & Household]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-039", "input": "Составить список бытовых расходников", "expected": {"primary_area": "[[Home & Household]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-040", "input": "Сохранить инструкцию к домашней технике", "expected": {"primary_area": "[[Home & Household]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-041", "input": "Спланировать поездку в Стамбул", "expected": {"primary_area": "[[Travel & Mobility]]", "type": "project"}, "review_expected": false}
+{"id": "cls-042", "input": "Собрать packing list для отпуска", "expected": {"primary_area": "[[Travel & Mobility]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-043", "input": "Выбрать отель на предстоящую поездку", "expected": {"primary_area": "[[Travel & Mobility]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-044", "input": "Сохранить маршрут по городу", "expected": {"primary_area": "[[Travel & Mobility]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-045", "input": "Записать идею подарка близкому человеку", "expected": {"primary_area": "[[Relationships & Family]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-046", "input": "Зафиксировать семейный план на выходные", "expected": {"primary_area": "[[Relationships & Family]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-047", "input": "Сохранить важную дату родственника", "expected": {"primary_area": "[[Relationships & Family]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-048", "input": "Записать совместное решение с партнёром", "expected": {"primary_area": "[[Relationships & Family]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-049", "input": "Напомнить написать профессиональному знакомому", "expected": {"primary_area": "[[Social & Community]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-050", "input": "Сохранить контакт ментора", "expected": {"primary_area": "[[Social & Community]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-051", "input": "Запланировать участие в дизайн-митапе", "expected": {"primary_area": "[[Social & Community]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-052", "input": "Зафиксировать знакомство с коллегой из сообщества", "expected": {"primary_area": "[[Social & Community]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-053", "input": "Сформулировать приоритеты на квартал", "expected": {"primary_area": "[[Self & Direction]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-054", "input": "Записать принцип принятия жизненных решений", "expected": {"primary_area": "[[Self & Direction]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-055", "input": "Провести годовой review целей", "expected": {"primary_area": "[[Self & Direction]]", "type": "project"}, "review_expected": false}
+{"id": "cls-056", "input": "Определить чего я сознательно не хочу делать", "expected": {"primary_area": "[[Self & Direction]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-057", "input": "Сохранить фильм на вечер", "expected": {"primary_area": "[[Leisure & Culture]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-058", "input": "Составить список альбомов для прослушивания", "expected": {"primary_area": "[[Leisure & Culture]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-059", "input": "Записать игру которую хочу пройти", "expected": {"primary_area": "[[Leisure & Culture]]", "type": "knowledge"}, "review_expected": false}
+{"id": "cls-060", "input": "Сохранить выставку которую хочу посетить", "expected": {"primary_area": "[[Leisure & Culture]]", "type": "knowledge"}, "review_expected": false}

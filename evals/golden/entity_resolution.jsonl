@@ -1,0 +1,30 @@
+{"id": "er-001", "candidate": "Example Labs", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "existing"}
+{"id": "er-002", "candidate": "Example Labs 1", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-003", "candidate": "Example Labs 2", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-004", "candidate": "Example Labs 3", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-005", "candidate": "Example Labs 4", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-006", "candidate": "Example Labs 5", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-007", "candidate": "Example Labs 6", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-008", "candidate": "Example Labs 7", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-009", "candidate": "Example Labs 8", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-010", "candidate": "Example Labs 9", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "new"}
+{"id": "er-011", "candidate": "Example Labs Inc.", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "existing"}
+{"id": "er-012", "candidate": "ELabs", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "existing"}
+{"id": "er-013", "candidate": "example labs", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "existing"}
+{"id": "er-014", "candidate": "EXAMPLE LABS", "existing": [{"id": "org_01M4K11NG0432M4ES1SHBWMBHR", "title": "Example Labs", "aliases": ["Example Labs Inc.", "ELabs"]}], "expected": "existing"}
+{"id": "er-015", "candidate": "Alex Example", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "existing"}
+{"id": "er-016", "candidate": "Alex", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "existing"}
+{"id": "er-017", "candidate": "Алекс Example", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "existing"}
+{"id": "er-018", "candidate": "Build Ideomy v1", "existing": [{"id": "prj_01M4K11NG0XKJFG87XA758PBH3", "title": "Build Ideomy v1", "aliases": ["Ideomy v1"]}], "expected": "existing"}
+{"id": "er-019", "candidate": "Ideomy v1", "existing": [{"id": "prj_01M4K11NG0XKJFG87XA758PBH3", "title": "Build Ideomy v1", "aliases": ["Ideomy v1"]}], "expected": "existing"}
+{"id": "er-020", "candidate": "Primary Area Is Determined by Intent", "existing": [{"id": "kn_01M4K11NG0P7VQFQ3Z69M6XACE", "title": "Primary Area Is Determined by Intent", "aliases": []}], "expected": "existing"}
+{"id": "er-021", "candidate": "Alex Example 2", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-022", "candidate": "Alex Example 3", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-023", "candidate": "Alex Example 4", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-024", "candidate": "Alex Example 5", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-025", "candidate": "Alex Example 6", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-026", "candidate": "Alex Example 7", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-027", "candidate": "Alex Example 8", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-028", "candidate": "Alex Example 9", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-029", "candidate": "Alex Example 10", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}
+{"id": "er-030", "candidate": "Alex Example 11", "existing": [{"id": "per_01M4K11NG0BHW6NYV9R5N8TWXH", "title": "Alex Example", "aliases": ["Alex"]}], "expected": "review"}

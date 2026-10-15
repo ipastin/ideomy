@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/knowledge.schema.json",
+  "title": "Ideomy knowledge frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "knowledge"
+        },
+        "status": {
+          "enum": [
+            "seed",
+            "developing",
+            "evergreen",
+            "deprecated",
+            "superseded"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "concept",
+            "principle",
+            "pattern",
+            "framework",
+            "heuristic",
+            "method",
+            "playbook",
+            "insight",
+            "model",
+            "comparison",
+            "reference"
+          ]
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype",
+        "primary_area"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+filters:
+  and:
+    - 'type == "project"'
+views:
+  - type: table
+    name: Active
+    filters:
+      and:
+        - 'status == "active"'
+    order:
+      - file.name
+      - status
+      - primary_area
+      - target_date
+      - updated
+  - type: table
+    name: All
+    order:
+      - file.name
+      - status
+      - primary_area

@@ -1,0 +1,71 @@
+{
+  "schemaVersion": "0.1.0",
+  "name": "Ideomy — Selection Capture",
+  "behavior": "create",
+  "noteContentFormat": "# {{title}} — selection\n\n> [!info] Web selection\n> Source: {{url}}\n\n## Selection\n\n{{selection}}\n",
+  "properties": [
+    {
+      "name": "ideomy_capture",
+      "value": "web-v1",
+      "type": "text"
+    },
+    {
+      "name": "capture_type",
+      "value": "web",
+      "type": "text"
+    },
+    {
+      "name": "capture_status",
+      "value": "inbox",
+      "type": "text"
+    },
+    {
+      "name": "capture_mode",
+      "value": "selection",
+      "type": "text"
+    },
+    {
+      "name": "source_url",
+      "value": "{{url}}",
+      "type": "text"
+    },
+    {
+      "name": "source_title",
+      "value": "{{title}}",
+      "type": "text"
+    },
+    {
+      "name": "source_author",
+      "value": "{{author}}",
+      "type": "text"
+    },
+    {
+      "name": "source_site",
+      "value": "{{site}}",
+      "type": "text"
+    },
+    {
+      "name": "source_domain",
+      "value": "{{domain}}",
+      "type": "text"
+    },
+    {
+      "name": "source_published",
+      "value": "{{published}}",
+      "type": "text"
+    },
+    {
+      "name": "captured_at",
+      "value": "{{time}}",
+      "type": "text"
+    },
+    {
+      "name": "clipper_template",
+      "value": "Ideomy — Selection Capture",
+      "type": "text"
+    }
+  ],
+  "triggers": [],
+  "noteNameFormat": "{{date|date:\"YYYY-MM-DD\"}} — {{title|safe_name}}",
+  "path": "01 Inbox/Web"
+}

@@ -1,0 +1,6 @@
+{"id": "ret-001", "query": "Почему мы решили держать Personal Vault отдельно от кода?", "expected_ids": ["dec_01M4K11NG0VEB0JAS3F501V9XB"], "metric": "recall@5"}
+{"id": "ret-002", "query": "Какой проект сейчас строит Ideomy?", "expected_ids": ["prj_01M4K11NG0XKJFG87XA758PBH3"], "metric": "recall@5"}
+{"id": "ret-003", "query": "Что я знаю о выборе primary area?", "expected_ids": ["kn_01M4K11NG0P7VQFQ3Z69M6XACE"], "metric": "recall@5"}
+{"id": "ret-004", "query": "Кто участвовал в архитектурном review?", "expected_ids": ["per_01M4K11NG0BHW6NYV9R5N8TWXH", "mtg_01M4K11NG0CMKA33ZTAR8PR3R3"], "metric": "recall@5"}
+{"id": "ret-005", "query": "Какой источник связан с intent и information architecture?", "expected_ids": ["src_01M4K11NG0NDHTPH14Y312K8SW"], "metric": "recall@5"}
+{"id": "ret-006", "query": "Покажи private local-only knowledge", "expected_ids": ["kn_01M4K11NG0FR85QN968FX7V14W"], "metric": "recall@5", "policy": "local_only"}

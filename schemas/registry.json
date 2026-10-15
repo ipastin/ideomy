@@ -1,0 +1,281 @@
+{
+  "schema_version": 1,
+  "id_format": "<prefix>_<ULID>",
+  "types": {
+    "area": {
+      "prefix": "area",
+      "statuses": [
+        "active",
+        "inactive",
+        "archived"
+      ],
+      "subtypes": [],
+      "schema": "entities/area.schema.json"
+    },
+    "project": {
+      "prefix": "prj",
+      "statuses": [
+        "idea",
+        "planned",
+        "active",
+        "waiting",
+        "paused",
+        "completed",
+        "cancelled"
+      ],
+      "subtypes": [],
+      "schema": "entities/project.schema.json"
+    },
+    "goal": {
+      "prefix": "gol",
+      "statuses": [
+        "draft",
+        "active",
+        "paused",
+        "achieved",
+        "abandoned"
+      ],
+      "subtypes": [],
+      "schema": "entities/goal.schema.json"
+    },
+    "knowledge": {
+      "prefix": "kn",
+      "statuses": [
+        "seed",
+        "developing",
+        "evergreen",
+        "deprecated",
+        "superseded"
+      ],
+      "subtypes": [
+        "concept",
+        "principle",
+        "pattern",
+        "framework",
+        "heuristic",
+        "method",
+        "playbook",
+        "insight",
+        "model",
+        "comparison",
+        "reference"
+      ],
+      "schema": "entities/knowledge.schema.json"
+    },
+    "source": {
+      "prefix": "src",
+      "statuses": [
+        "inbox",
+        "queued",
+        "consuming",
+        "processed",
+        "archived"
+      ],
+      "subtypes": [
+        "article",
+        "book",
+        "paper",
+        "documentation",
+        "website",
+        "video",
+        "podcast",
+        "course",
+        "conversation",
+        "chat",
+        "pdf",
+        "report",
+        "newsletter",
+        "other"
+      ],
+      "schema": "entities/source.schema.json"
+    },
+    "person": {
+      "prefix": "per",
+      "statuses": [
+        "active",
+        "dormant",
+        "archived"
+      ],
+      "subtypes": [],
+      "schema": "entities/person.schema.json"
+    },
+    "organization": {
+      "prefix": "org",
+      "statuses": [
+        "active",
+        "inactive",
+        "archived"
+      ],
+      "subtypes": [
+        "company",
+        "employer",
+        "client",
+        "vendor",
+        "service",
+        "community",
+        "institution",
+        "government",
+        "education",
+        "nonprofit",
+        "other"
+      ],
+      "schema": "entities/organization.schema.json"
+    },
+    "decision": {
+      "prefix": "dec",
+      "statuses": [
+        "proposed",
+        "accepted",
+        "implemented",
+        "rejected",
+        "superseded"
+      ],
+      "subtypes": [],
+      "schema": "entities/decision.schema.json"
+    },
+    "meeting": {
+      "prefix": "mtg",
+      "statuses": [
+        "scheduled",
+        "completed",
+        "processed",
+        "cancelled"
+      ],
+      "subtypes": [
+        "work",
+        "1on1",
+        "interview",
+        "research-interview",
+        "client-call",
+        "review",
+        "mentoring",
+        "networking",
+        "personal",
+        "other"
+      ],
+      "schema": "entities/meeting.schema.json"
+    },
+    "event": {
+      "prefix": "evt",
+      "statuses": [
+        "planned",
+        "completed",
+        "cancelled"
+      ],
+      "subtypes": [],
+      "schema": "entities/event.schema.json"
+    },
+    "record": {
+      "prefix": "rec",
+      "statuses": [
+        "recorded",
+        "verified",
+        "superseded",
+        "invalid"
+      ],
+      "subtypes": [
+        "evidence",
+        "health",
+        "financial",
+        "measurement",
+        "purchase",
+        "maintenance",
+        "administrative",
+        "other"
+      ],
+      "schema": "entities/record.schema.json"
+    },
+    "asset": {
+      "prefix": "ast",
+      "statuses": [
+        "planned",
+        "active",
+        "maintenance",
+        "sold",
+        "retired",
+        "lost"
+      ],
+      "subtypes": [
+        "device",
+        "vehicle",
+        "property",
+        "equipment",
+        "digital",
+        "license",
+        "other"
+      ],
+      "schema": "entities/asset.schema.json"
+    },
+    "place": {
+      "prefix": "plc",
+      "statuses": [
+        "active",
+        "inactive",
+        "archived"
+      ],
+      "subtypes": [
+        "country",
+        "region",
+        "city",
+        "neighborhood",
+        "venue",
+        "hotel",
+        "restaurant",
+        "office",
+        "airport",
+        "other"
+      ],
+      "schema": "entities/place.schema.json"
+    },
+    "journal": {
+      "prefix": "jrn",
+      "statuses": [
+        "open",
+        "reviewed",
+        "closed"
+      ],
+      "subtypes": [
+        "daily",
+        "weekly",
+        "monthly",
+        "quarterly",
+        "yearly"
+      ],
+      "schema": "entities/journal.schema.json"
+    },
+    "system": {
+      "prefix": "sys",
+      "statuses": [
+        "draft",
+        "active",
+        "deprecated"
+      ],
+      "subtypes": [
+        "specification",
+        "schema",
+        "workflow",
+        "prompt",
+        "agent-policy",
+        "template",
+        "dashboard",
+        "taxonomy",
+        "migration",
+        "moc",
+        "other"
+      ],
+      "schema": "entities/system.schema.json"
+    }
+  },
+  "sensitivity": [
+    "public",
+    "internal",
+    "private",
+    "sensitive"
+  ],
+  "agent_access": [
+    "allowed",
+    "restricted",
+    "local_only",
+    "denied"
+  ]
+}

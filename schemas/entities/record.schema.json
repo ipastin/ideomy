@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/schema/entities/record.schema.json",
+  "title": "Ideomy record frontmatter",
+  "allOf": [
+    {
+      "$ref": "../base.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "record"
+        },
+        "status": {
+          "enum": [
+            "recorded",
+            "verified",
+            "superseded",
+            "invalid"
+          ]
+        },
+        "subtype": {
+          "enum": [
+            "evidence",
+            "health",
+            "financial",
+            "measurement",
+            "purchase",
+            "maintenance",
+            "administrative",
+            "other"
+          ]
+        },
+        "date": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      "required": [
+        "type",
+        "status",
+        "subtype",
+        "date"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

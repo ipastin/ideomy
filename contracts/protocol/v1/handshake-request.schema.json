@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ideomy.local/protocol/v1/handshake-request.schema.json",
+  "type": "object",
+  "required": [
+    "client_type",
+    "client_version",
+    "protocol_min",
+    "protocol_max",
+    "vault_id",
+    "vault_fingerprint",
+    "client_instance_id"
+  ],
+  "properties": {
+    "client_type": {
+      "enum": [
+        "plugin",
+        "cli"
+      ]
+    },
+    "client_version": {
+      "type": "string"
+    },
+    "protocol_min": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "protocol_max": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "vault_id": {
+      "type": "string"
+    },
+    "vault_fingerprint": {
+      "type": "string"
+    },
+    "client_instance_id": {
+      "type": "string"
+    },
+    "platform": {
+      "type": "string"
+    },
+    "requested_capabilities": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

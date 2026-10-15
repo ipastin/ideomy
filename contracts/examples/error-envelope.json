@@ -1,0 +1,11 @@
+{
+  "ok": false,
+  "error": {
+    "code": "VAULT-004",
+    "category": "vault",
+    "message": "Vault identity does not match the active Core profile.",
+    "retryable": false,
+    "request_id": "req_01K7EXAMPLE0000000000000",
+    "details": {}
+  }
+}
