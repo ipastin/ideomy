@@ -14,6 +14,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import path from "node:path";
 import { type CoreDiscovery, protocolSchemas } from "@ideomy/contracts";
 import { readCliAdminSecret, readMachineLocalFile } from "@ideomy/platform";
+import { inspectVault } from "./vault-health.ts";
 
 type ClientType = "plugin" | "cli";
 type PairedClient = {
@@ -21,13 +22,22 @@ type PairedClient = {
   vault_fingerprint: string;
   public_key: { kty: "EC"; crv: "P-256"; x: string; y: string };
 };
-type Session = { clientType: ClientType; clientId: string; vaultId: string; fingerprint: string; expiresAt: number };
+type Session = {
+  clientType: ClientType;
+  clientId: string;
+  vaultId: string;
+  fingerprint: string;
+  expiresAt: number;
+  compatibleHandshake?: boolean;
+};
 type Challenge = { nonce: string; clientId: string; expiresAt: number };
 
 export type CoreOptions = {
   stateDirectory: string;
   vaultId: string;
   vaultFingerprint: string;
+  vaultPath?: string;
+  propertyMapping?: Record<string, string>;
   allowedOrigins?: string[];
 };
 
@@ -148,8 +158,17 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
   writePrivateFile(
     options.stateDirectory,
     "core-profile.json",
-    JSON.stringify({ vault_id: options.vaultId, vault_fingerprint: options.vaultFingerprint }),
+    JSON.stringify({
+      vault_id: options.vaultId,
+      vault_fingerprint: options.vaultFingerprint,
+      ...(options.vaultPath ? { vault_path: options.vaultPath } : {}),
+      ...(options.propertyMapping ? { property_mapping: options.propertyMapping } : {}),
+    }),
   );
+  const initialVault = inspectVault(options);
+  if (initialVault.manifest !== null && initialVault.index !== "current") {
+    writePrivateFile(options.stateDirectory, "bootstrap-index.json", initialVault.manifest);
+  }
   const clients = readPairedClients(options.stateDirectory);
   const instanceId = random("core");
   const sessions = new Map<string, Session>();
@@ -400,6 +419,8 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
           return error(409, "VAULT-004", "Vault identity does not match the active Core profile.");
         if (data.protocol_min > data.protocol_max) return error(400, "CORE-400", "Invalid protocol range.");
         const compatibility = data.protocol_min > 1 ? "core_update_required" : "compatible";
+        session.compatibleHandshake = compatibility === "compatible";
+        const vault = inspectVault(options);
         send(
           response,
           200,
@@ -411,23 +432,48 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
             vault_fingerprint: options.vaultFingerprint,
             capabilities: compatibility === "compatible" ? ["system-health"] : [],
             compatibility,
-            schema_status: "unavailable",
-            index_status: "unavailable",
+            schema_status: vault.schema,
+            index_status: vault.index,
             session_expires_at: new Date(session.expiresAt).toISOString(),
           }),
         );
         return;
       }
       if (request.method === "GET" && route === "/v1/system-health") {
+        const vault = inspectVault(options);
         send(
           response,
           200,
           protocolSchemas.status.parse({
-            status: "degraded",
-            core: { status: "ready", instance_id: instanceId },
-            vault: { status: "bound", vault_id: options.vaultId },
-            schema: { status: "unavailable" },
-            index: { status: "unavailable" },
+            status:
+              vault.schema === "valid" && vault.index === "current"
+                ? vault.diagnostics.length
+                  ? "attention"
+                  : "healthy"
+                : "degraded",
+            core: {
+              status: "ready",
+              instance_id: instanceId,
+              plugin_paired: [...clients.values()].some((client) =>
+                vaultMatches(client.vault_id, client.vault_fingerprint),
+              ),
+              plugin_authenticated: [...sessions.values()].some(
+                (active) =>
+                  active.clientType === "plugin" &&
+                  active.expiresAt > Date.now() &&
+                  vaultMatches(active.vaultId, active.fingerprint),
+              ),
+              plugin_handshake: [...sessions.values()].some(
+                (active) =>
+                  active.clientType === "plugin" &&
+                  active.expiresAt > Date.now() &&
+                  active.compatibleHandshake === true &&
+                  vaultMatches(active.vaultId, active.fingerprint),
+              ),
+            },
+            vault: { status: vault.vault, vault_id: options.vaultId },
+            schema: { status: vault.schema, diagnostics: vault.diagnostics },
+            index: { status: vault.index },
           }),
         );
         return;

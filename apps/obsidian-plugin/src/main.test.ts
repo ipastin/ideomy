@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("obsidian", () => ({
   FileSystemAdapter: class {
+    exists = vi.fn(async () => false);
+    read = vi.fn(async () => "{}");
     getBasePath() {
       return "/synthetic/vault";
     }
@@ -33,12 +35,15 @@ function pluginFixture(desktop: boolean) {
     getLeavesOfType: vi.fn(() => []),
     detachLeavesOfType: vi.fn(),
   };
-  const app = { workspace, vault: { adapter: desktop ? new FileSystemAdapter() : {} } };
+  const app = {
+    workspace,
+    vault: { configDir: ".synthetic-obsidian", adapter: desktop ? new FileSystemAdapter() : {} },
+  };
   const plugin = Object.assign(new IdeomyPlugin(app as never, { version: "0.0.1" } as never), {
     app,
     manifest: { version: "0.0.1" },
   });
-  return { plugin, workspace, ready: () => ready?.() };
+  return { plugin, workspace, adapter: app.vault.adapter, ready: () => ready?.() };
 }
 
 describe("Plugin lifecycle", () => {
@@ -67,5 +72,24 @@ describe("Plugin lifecycle", () => {
     expect(plugin.connection).toBeUndefined();
     ready();
     expect(plugin.connection).toBeUndefined();
+  });
+
+  it("reads only the setup-owned hint after layout ready using Obsidian's configured directory", async () => {
+    vi.stubGlobal("window", { setInterval: vi.fn(() => 1) });
+    const { plugin, ready, adapter } = pluginFixture(true);
+    if (!(adapter instanceof FileSystemAdapter)) throw new Error("Expected desktop adapter.");
+    vi.spyOn(adapter, "exists").mockResolvedValue(true);
+    plugin.onload();
+    expect(adapter.exists).not.toHaveBeenCalled();
+    expect(adapter.read).not.toHaveBeenCalled();
+    ready();
+    await vi.waitFor(() =>
+      expect(adapter.exists).toHaveBeenCalledWith(".synthetic-obsidian/plugins/ideomy/connection.json"),
+    );
+    await vi.waitFor(() => expect(plugin.connection?.state.state).toBe("unavailable"));
+    expect(adapter.read).toHaveBeenCalledWith(".synthetic-obsidian/plugins/ideomy/connection.json");
+    expect(adapter.exists).toHaveBeenCalledOnce();
+    expect(adapter.read).toHaveBeenCalledOnce();
+    plugin.onunload();
   });
 });

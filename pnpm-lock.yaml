@@ -229,6 +229,9 @@ importers:
       '@ideomy/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@ideomy/vault-io':
+        specifier: workspace:*
+        version: link:../../packages/vault-io
 
   apps/obsidian-plugin:
     dependencies:
@@ -254,9 +257,15 @@ importers:
       '@ideomy/contracts':
         specifier: workspace:*
         version: link:../contracts
+      '@ideomy/core-client':
+        specifier: workspace:*
+        version: link:../core-client
       '@ideomy/platform':
         specifier: workspace:*
         version: link:../platform
+      '@ideomy/vault-io':
+        specifier: workspace:*
+        version: link:../vault-io
 
   packages/config: {}
 

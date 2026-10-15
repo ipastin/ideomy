@@ -1,6 +1,17 @@
 import type { CliDiagnostic } from "@ideomy/contracts";
 import { type EnvironmentSnapshot, inspectEnvironment, inspectSetupEnvironment } from "@ideomy/platform";
 
+export {
+  doctorFoundation,
+  type FoundationDependencies,
+  type FoundationOptions,
+  repairFoundation,
+  setupFoundation,
+  statusFoundation,
+  uninstallFoundation,
+  updateFoundation,
+} from "./foundation.ts";
+
 export const bootstrapStages = [
   "START",
   "CHECK_PLATFORM",
@@ -27,7 +38,7 @@ export type Diagnostic = CliDiagnostic;
 export type ShellResult = {
   ok: boolean;
   status: "healthy" | "degraded" | "failed";
-  exitCode: 0 | 2 | 10 | 20 | 40;
+  exitCode: 0 | 2 | 10 | 20 | 30 | 40 | 50 | 70 | 80 | 90;
   data: Record<string, unknown>;
   diagnostics: Diagnostic[];
 };

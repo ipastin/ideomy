@@ -32,7 +32,14 @@ export function readCliAdminSecret(directory = coreStateDirectory()): string {
   return secret;
 }
 
-export function readCoreProfile(directory = coreStateDirectory()): { vault_id: string; vault_fingerprint: string } {
+export interface CoreProfile {
+  vault_id: string;
+  vault_fingerprint: string;
+  vault_path?: string;
+  property_mapping?: Record<string, string>;
+}
+
+export function readCoreProfile(directory = coreStateDirectory()): CoreProfile {
   const value: unknown = JSON.parse(readMachineLocalFile(directory, "core-profile.json"));
   if (
     !value ||
@@ -42,5 +49,15 @@ export function readCoreProfile(directory = coreStateDirectory()): { vault_id: s
   ) {
     throw new Error("Core profile is invalid.");
   }
-  return value as { vault_id: string; vault_fingerprint: string };
+  const profile = value as Record<string, unknown>;
+  if (
+    (profile.vault_path !== undefined && typeof profile.vault_path !== "string") ||
+    (profile.property_mapping !== undefined &&
+      (!profile.property_mapping ||
+        typeof profile.property_mapping !== "object" ||
+        Array.isArray(profile.property_mapping) ||
+        Object.values(profile.property_mapping).some((entry) => typeof entry !== "string")))
+  )
+    throw new Error("Core profile is invalid.");
+  return value as CoreProfile;
 }

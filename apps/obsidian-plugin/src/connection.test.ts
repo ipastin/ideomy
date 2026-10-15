@@ -85,6 +85,108 @@ describe("Plugin local credentials", () => {
 });
 
 describe("Plugin Core connection", () => {
+  it("reads setup hints without manual JSON and refreshes Core port/instance with the same local identity", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    let hint = metadata;
+    const { transport, requests } = fixture();
+    const discover = vi.fn(async () => hint);
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, discover);
+    await connection.connect("synthetic-once");
+    expect(connection.state.state).toBe("connected");
+    expect(connection.state.message).toContain("Foundation: degraded");
+    const firstClient = requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id;
+    expect(firstClient).toBeTruthy();
+    hint = {
+      ...metadata,
+      discovery: { ...discovery, instance_id: "core_restarted", port: 31235 },
+    };
+    const restarted = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: "core_restarted", status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-session-restarted",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: "core_restarted",
+        vault_id: discovery.vault_id,
+      },
+      "/v1/handshake": { ...handshake, core_instance_id: "core_restarted" },
+    });
+    transport.mockImplementation(restarted.transport);
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
+    expect(restarted.requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id).toBe(
+      firstClient,
+    );
+    expect(restarted.requests.some((request) => request.route === "/v1/pair/request")).toBe(false);
+    expect(await store.read("connection:/synthetic/one")).toEqual(hint);
+    expect(discover).toHaveBeenCalledTimes(2);
+    connection.stop();
+  });
+
+  it("rejects a setup hint for another Vault path or changed identity before network or persistence", async () => {
+    for (const wrong of [
+      { ...metadata, vaultPath: "/synthetic/two" },
+      { ...metadata, vaultFingerprint: "another-fingerprint" },
+      { ...metadata, discovery: { ...discovery, vault_id: "vault_another" } },
+    ]) {
+      const store = new LocalStore(crypto.randomUUID());
+      await store.write("connection:/synthetic/one", metadata);
+      const { transport } = fixture();
+      const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => wrong);
+      await connection.connect("synthetic-once");
+      expect(connection.state.state).toBe("wrong-vault");
+      expect(transport).not.toHaveBeenCalled();
+      expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+      connection.stop();
+    }
+  });
+
+  it("reports malformed setup metadata as unavailable without connecting using stale metadata", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    await store.write("connection:/synthetic/one", metadata);
+    const { transport } = fixture();
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => ({
+      ...metadata,
+      bootstrap_proof: "synthetic-secret",
+    }));
+    await connection.connect();
+    expect(connection.state.state).toBe("unavailable");
+    expect(transport).not.toHaveBeenCalled();
+    expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+    connection.stop();
+  });
+
+  it("does not pin a first setup hint whose authenticated handshake belongs to another Vault", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    const { transport } = fixture({ "/v1/handshake": { ...handshake, vault_fingerprint: "another-vault" } });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => metadata);
+    await connection.connect();
+    expect(connection.state.state).toBe("wrong-vault");
+    expect(await store.read("connection:/synthetic/one")).toBeUndefined();
+    connection.stop();
+  });
+
+  it("suppresses a late setup hint after unload", async () => {
+    let resolveHint: ((hint: unknown) => void) | undefined;
+    const discover = vi.fn(
+      () =>
+        new Promise<unknown>((resolve) => {
+          resolveHint = resolve;
+        }),
+    );
+    const store = new LocalStore(crypto.randomUUID());
+    const write = vi.spyOn(store, "write");
+    const { transport } = fixture();
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, discover);
+    const pending = connection.connect();
+    await vi.waitFor(() => expect(discover).toHaveBeenCalled());
+    connection.stop();
+    resolveHint?.(metadata);
+    await pending;
+    expect(write).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it("calls native-style fetch without binding it to PluginConnection", async () => {
     const { transport: reply } = fixture();
     const transport = vi.fn<typeof fetch>(function (this: unknown, input, init) {

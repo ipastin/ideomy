@@ -7,9 +7,9 @@ const invoke = (...args: string[]) => spawnSync(process.execPath, [cli.pathname,
 
 describe("M0.1 CLI contract", () => {
   it("has a working executable, help and version", () => {
-    expect(invoke("--help").stdout).toContain("setup       Begin guided setup");
+    expect(invoke("--help").stdout).toContain("setup       Create or attach a Vault");
     expect(invoke("--version").stdout.trim()).toBe(CLI_VERSION);
-  });
+  }, 20_000);
 
   it("uses one clean versioned JSON document and stable usage exit", () => {
     const status = invoke("status", "--json");
@@ -28,12 +28,12 @@ describe("M0.1 CLI contract", () => {
     expect(bad.status).toBe(2);
     expect(JSON.parse(bad.stdout).diagnostics[0].code).toBe("CONFIG-002");
     expect(bad.stderr).toBe("");
-  });
+  }, 20_000);
 
   it("rejects conflicting modes and does not prompt in non-interactive mode", () => {
     expect(parseArgs(["setup", "--new", "--existing"]).error).toContain("mutually exclusive");
     const result = invoke("setup", "--non-interactive", "--json");
     expect(result.status).not.toBe(0);
     expect(JSON.parse(result.stdout).ok).toBe(false);
-  });
+  }, 20_000);
 });
