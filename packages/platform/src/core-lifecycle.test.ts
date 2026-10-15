@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { type CoreProcessRuntime, MacosCoreLifecycle } from "./core-lifecycle.ts";
+import { type CoreProcessRuntime, CoreStartupPendingError, MacosCoreLifecycle } from "./core-lifecycle.ts";
 import { readCoreProfile } from "./core-state.ts";
 
 vi.mock("node:timers/promises", () => ({ setTimeout: async () => {} }));
@@ -86,6 +86,17 @@ describe("macOS Alpha Core lifecycle", () => {
     const f = fixture();
     vi.mocked(f.runtime.launch).mockImplementation(async () => {});
     await expect(f.adapter.start()).rejects.toThrow("exited before publishing discovery");
+  });
+  it("reports a verified live Core without discovery as a resumable startup", async () => {
+    const f = fixture();
+    vi.mocked(f.runtime.launch).mockImplementation(async () => {
+      f.setLive(true);
+      writeFileSync(f.lock, "12345", { mode: 0o600 });
+    });
+    await expect(f.adapter.start()).rejects.toBeInstanceOf(CoreStartupPendingError);
+    f.writeState();
+    expect(await f.adapter.start()).toEqual({ state: "running", pid: 12345 });
+    expect(f.runtime.launch).toHaveBeenCalledTimes(1);
   });
   it("starts idempotently, restarts and stops using the same private state", async () => {
     const { adapter, runtime, directory } = fixture();

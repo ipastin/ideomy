@@ -17,6 +17,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { CoreClient, CoreClientError } from "@ideomy/core-client";
 import {
+  CoreStartupPendingError,
   coreStateDirectory,
   type EnvironmentSnapshot,
   inspectEnvironment,
@@ -532,6 +533,20 @@ export async function setupFoundation(
     try {
       await lifecycle.start();
     } catch (error) {
+      if (error instanceof CoreStartupPendingError)
+        return {
+          ok: false,
+          status: "degraded",
+          exitCode: 90,
+          data: { stage, completed_stages: state.completed_stages, resumable: true },
+          diagnostics: [
+            issue(
+              "CORE-503",
+              error.message,
+              "Core is still starting. Inspect machine-local Core logs and rerun setup after discovery appears.",
+            ),
+          ],
+        };
       throw new Failure(
         "CORE-503",
         "Core has not published a ready discovery.",

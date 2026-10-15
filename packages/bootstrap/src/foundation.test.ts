@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { CoreClient } from "@ideomy/core-client";
+import { CoreStartupPendingError } from "@ideomy/platform";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   doctorFoundation,
@@ -240,6 +241,18 @@ describe("Bootstrap Foundation", () => {
     expect(interrupted.diagnostics[0]?.remediation).toContain("Rerun setup");
     writeFileSync(path.join(f.vault, "user.md"), "keep");
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
+    expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("keep");
+  });
+  it("reports a live Core still indexing as degraded and resumes setup after discovery", async () => {
+    const f = fixture();
+    f.lifecycle.start.mockRejectedValueOnce(new CoreStartupPendingError());
+    const pending = await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    expect(pending.status).toBe("degraded");
+    expect(pending.data.stage).toBe("START_CORE");
+    expect(pending.data.resumable).toBe(true);
+    expect(pending.diagnostics[0]?.code).toBe("CORE-503");
+    writeFileSync(path.join(f.vault, "user.md"), "keep");
+    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).data.stage).toBe("DONE");
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("keep");
   });
   it("requires genuine Plugin handshake and never persists or JSON-prints pairing proof", async () => {

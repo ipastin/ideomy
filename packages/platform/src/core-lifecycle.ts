@@ -23,6 +23,12 @@ export type CoreProcessState =
   | { state: "blocked"; pid: number }
   | { state: "running"; pid: number };
 
+export class CoreStartupPendingError extends Error {
+  constructor() {
+    super("Core process is still active but has not published discovery after two minutes.");
+  }
+}
+
 export interface CoreProcessRuntime {
   alive(pid: number): boolean;
   owns(pid: number, executable: string, entrypoint: string): boolean;
@@ -151,9 +157,23 @@ export class MacosCoreLifecycle {
         throw new Error("Core exited before publishing discovery; inspect machine-local Core logs.");
       await delay(50);
     }
-    throw new Error(
-      "Core did not become ready within two minutes; inspect machine-local Core logs and rerun setup after indexing completes.",
-    );
+    const final = this.inspect();
+    if (final.state === "running") {
+      this.refreshPluginConnection();
+      return final;
+    }
+    if (final.state === "blocked") {
+      const raw = readMachineLocalFile(this.stateDirectory, "core-instance.lock");
+      const pid = Number(raw);
+      if (
+        Number.isSafeInteger(pid) &&
+        pid > 0 &&
+        this.runtime.alive(pid) &&
+        this.runtime.owns(pid, this.executable, this.entrypoint)
+      )
+        throw new CoreStartupPendingError();
+    }
+    throw new Error("Core did not become ready; inspect machine-local Core logs and run ideomy repair if needed.");
   }
 
   async stop(): Promise<CoreProcessState> {
