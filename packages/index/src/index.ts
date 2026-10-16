@@ -4,17 +4,19 @@ import { hashRaw, type ParsedNote, scanVault } from "@ideomy/vault-io";
 import Database from "better-sqlite3";
 import { migrations } from "./migrations.ts";
 
-const relationProperties = [
-  "primary_area",
-  "related_areas",
-  "projects",
-  "goals",
-  "people",
-  "organizations",
-  "places",
-  "sources",
-  "decisions",
-] as const;
+export const relationTargets = {
+  primary_area: "area",
+  related_areas: "area",
+  projects: "project",
+  goals: "goal",
+  people: "person",
+  organizations: "organization",
+  places: "place",
+  sources: "source",
+  decisions: "decision",
+} as const;
+
+const unfinishedTransaction = "SELECT 1 FROM transactions WHERE state NOT IN ('committed', 'rolled_back') LIMIT 1";
 
 export class IndexError extends Error {
   readonly code: string;
@@ -65,9 +67,15 @@ export function indexRevision(entries: Entry[], input: IndexInput): string {
   );
 }
 
-function resolveTarget(target: string, entries: Entry[]): { id: string | null; resolution: string } {
+function resolveTarget(
+  target: string,
+  entries: Entry[],
+  targetType: string,
+): { id: string | null; resolution: string } {
   const reference = target.slice(2, -2).split("|", 1)[0]?.split("#", 1)[0]?.replace(/\.md$/i, "") ?? "";
-  const managed = entries.filter((entry) => entry.note.kind === "managed");
+  const managed = entries.filter(
+    (entry) => entry.note.kind === "managed" && entry.note.logicalProperties?.type === targetType,
+  );
   const candidates = [
     managed.filter((entry) => entry.path.replace(/\.md$/i, "") === reference),
     managed.filter((entry) => path.basename(entry.path, ".md") === reference || title(entry) === reference),
@@ -130,15 +138,9 @@ export class BetterSqliteStore implements SqliteStore {
       );
     const entries = scan.notes;
     const next = indexRevision(entries, input);
-    if (this.revision() === next) return next;
-    if (
-      (
-        this.db
-          .prepare("SELECT count(*) AS count FROM transactions WHERE state NOT IN ('committed', 'rolled_back')")
-          .get() as { count: number }
-      ).count
-    )
+    if (this.db.prepare(unfinishedTransaction).get())
       throw new IndexError("INDEX-004", "Incomplete transaction recovery metadata blocks index rebuild.");
+    if (this.revision() === next) return next;
     this.db.transaction(() => {
       this.db.exec(
         "DELETE FROM fts_chunks; DELETE FROM chunks; DELETE FROM relationships; DELETE FROM file_state; DELETE FROM documents; DELETE FROM entities; DELETE FROM index_metadata;",
@@ -175,7 +177,7 @@ export class BetterSqliteStore implements SqliteStore {
       for (const entry of entries) {
         if (entry.note.kind !== "managed") continue;
         const props = entry.note.logicalProperties ?? {};
-        for (const property of relationProperties) {
+        for (const property of Object.keys(relationTargets) as (keyof typeof relationTargets)[]) {
           const values = Array.isArray(props[property])
             ? (props[property] as unknown[])
             : props[property]
@@ -183,7 +185,7 @@ export class BetterSqliteStore implements SqliteStore {
               : [];
           for (const [ordinal, value] of values.entries()) {
             if (typeof value !== "string") continue;
-            const target = resolveTarget(value, entries);
+            const target = resolveTarget(value, entries, relationTargets[property]);
             relation.run(props.id, property, ordinal, value, target.id, target.resolution);
           }
         }
@@ -196,12 +198,13 @@ export class BetterSqliteStore implements SqliteStore {
   }
 
   search(query: string): SearchHit[] {
-    if (!query.trim()) return [];
+    if (!/[\p{L}\p{N}]/u.test(query)) return [];
+    const literal = `"${query.replaceAll('"', '""')}"`;
     return this.db
       .prepare(`SELECT d.path, d.entity_id AS entityId, d.title
       FROM fts_chunks f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
       WHERE fts_chunks MATCH ? ORDER BY bm25(fts_chunks), d.path`)
-      .all(query) as SearchHit[];
+      .all(literal) as SearchHit[];
   }
 
   close(): void {
@@ -219,6 +222,7 @@ export function inspectIndex(
     try {
       if (db.pragma("user_version", { simple: true }) !== migrations.length) return "invalid";
       if (db.pragma("quick_check", { simple: true }) !== "ok") return "invalid";
+      if (db.prepare(unfinishedTransaction).get()) return "invalid";
       const row = db.prepare("SELECT value FROM index_metadata WHERE key = 'revision'").get() as
         | { value?: string }
         | undefined;

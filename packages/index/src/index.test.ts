@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
-import { BetterSqliteStore, indexFilename, inspectIndex } from "./index.ts";
+import { BetterSqliteStore, indexFilename, inspectIndex, relationTargets } from "./index.ts";
 
 const fixtures = path.resolve(import.meta.dirname, "../../../fixtures/test-vault");
 const project = "10 Projects/Build Ideomy v1.md";
@@ -22,7 +22,7 @@ function syntheticVault() {
   }
   writeFileSync(
     path.join(vaultRoot, "Search.md"),
-    "# Исследование\nРусский полнотекстовый поиск. English knowledge retrieval.\n",
+    "# Исследование\nРусский полнотекстовый поиск. English knowledge retrieval. C++ project-plan can't trailing OR.\n",
   );
   return {
     directory,
@@ -44,6 +44,10 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
       expect(inspectIndex(f.databasePath, first)).toBe("current");
       expect(store.search("русский")).toEqual([expect.objectContaining({ path: "Search.md", entityId: null })]);
       expect(store.search("knowledge")).toContainEqual(expect.objectContaining({ path: "Search.md" }));
+      for (const query of ["C++", "project-plan", "can't", "trailing OR"])
+        expect(store.search(query)).toContainEqual(expect.objectContaining({ path: "Search.md" }));
+      expect(store.search('"unmatched')).toEqual([]);
+      expect(store.search("++")).toEqual([]);
       expect(store.search("несуществующее")).toEqual([]);
       const db = new Database(f.databasePath, { readonly: true });
       try {
@@ -75,6 +79,62 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     future.pragma("user_version = 2");
     future.close();
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-002" }));
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("keeps relationship targets within the machine contract's entity type", () => {
+  const artifact = JSON.parse(readFileSync(path.join(fixtures, "../../schemas/relationships.json"), "utf8")) as Record<
+    string,
+    { to: string[] }
+  >;
+  expect(Object.fromEntries(Object.entries(artifact).map(([name, rule]) => [name, rule.to[0]]))).toEqual(
+    relationTargets,
+  );
+  const f = syntheticVault();
+  try {
+    const personFile = path.join(f.vaultRoot, "person.md");
+    copyFileSync(path.join(fixtures, "30 People/Alex Example.md"), personFile);
+    const projectFile = path.join(f.vaultRoot, project);
+    const original = readFileSync(projectFile, "utf8");
+    writeFileSync(
+      projectFile,
+      original.replace('primary_area: "[[Technology & AI]]"', 'primary_area: "[[Alex Example]]"'),
+    );
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      store.rebuild(f.input);
+      const db = new Database(f.databasePath, { readonly: true });
+      try {
+        expect(
+          db
+            .prepare(
+              "SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'",
+            )
+            .get(projectId),
+        ).toEqual({ target_id: null, resolution: "missing" });
+      } finally {
+        db.close();
+      }
+      writeFileSync(projectFile, original);
+      writeFileSync(personFile, readFileSync(personFile, "utf8").replace("# Alex Example", "# Technology & AI"));
+      store.rebuild(f.input);
+      const resolved = new Database(f.databasePath, { readonly: true });
+      try {
+        expect(
+          resolved
+            .prepare(
+              "SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'",
+            )
+            .get(projectId),
+        ).toMatchObject({ target_id: expect.stringMatching(/^area_/), resolution: "resolved" });
+      } finally {
+        resolved.close();
+      }
+    } finally {
+      store.close();
+    }
   } finally {
     rmSync(f.directory, { recursive: true, force: true });
   }
@@ -131,9 +191,11 @@ it("fails closed on duplicate IDs and preserves unfinished recovery metadata", (
       "INSERT INTO transactions VALUES ('synthetic-operation', 'prepared', 'synthetic-journal', '2026-10-16T00:00:00Z')",
     ).run();
     db.close();
-    writeFileSync(path.join(f.vaultRoot, "Search.md"), "changed synthetic content");
     const reopened = new BetterSqliteStore(f.databasePath);
     try {
+      expect(inspectIndex(f.databasePath, reopened.revision() ?? "")).toBe("invalid");
+      expect(() => reopened.rebuild(f.input)).toThrowError(expect.objectContaining({ code: "INDEX-004" }));
+      writeFileSync(path.join(f.vaultRoot, "Search.md"), "changed synthetic content");
       expect(() => reopened.rebuild(f.input)).toThrowError(expect.objectContaining({ code: "INDEX-004" }));
     } finally {
       reopened.close();
