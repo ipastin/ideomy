@@ -1,10 +1,9 @@
+import addFormats from "ajv-formats";
 import { z } from "zod";
 
-const isoDateTime = z.iso.datetime({ offset: true });
-const dateTime = z
-  .string()
-  .refine((value) => isoDateTime.safeParse(value.replace("t", "T").replace(/z$/, "Z")).success)
-  .meta({ format: "date-time" });
+const validateDateTime = (addFormats.default.get("date-time", "full") as { validate: (value: string) => boolean })
+  .validate;
+const dateTime = z.string().refine(validateDateTime).meta({ format: "date-time" });
 const object = z.record(z.string(), z.unknown());
 
 export const cliOutputSchema = z.strictObject({
