@@ -2,7 +2,9 @@
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { doctorShell, type ShellResult, setupShell, statusShell } from "@ideomy/bootstrap";
-import { cliOutputSchema } from "@ideomy/contracts";
+import { cliOutputSchema, protocolSchemas } from "@ideomy/contracts";
+import { CoreClient, CoreClientError } from "@ideomy/core-client";
+import { readCliAdminSecret, readCoreDiscovery, readCoreProfile } from "@ideomy/platform";
 
 export const CLI_VERSION = "0.0.0";
 const help = `Ideomy ${CLI_VERSION}
@@ -223,7 +225,70 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     return;
   }
   if (options.command === "status") {
-    print("status", statusShell(), options.json, options.quiet);
+    let discoveryFound = false;
+    try {
+      const discovery = protocolSchemas.discovery.parse(readCoreDiscovery());
+      discoveryFound = true;
+      const profile = readCoreProfile();
+      if (profile.vault_id !== discovery.vault_id)
+        throw new CoreClientError("VAULT-004", "Core profile and discovery identify different Vaults.");
+      const client = new CoreClient(readCoreDiscovery);
+      const handshake = await client.connectCli(
+        {
+          vaultId: discovery.vault_id,
+          vaultFingerprint: profile.vault_fingerprint,
+          clientInstanceId: `cli_${process.pid}`,
+          clientVersion: CLI_VERSION,
+        },
+        readCliAdminSecret(),
+      );
+      const health = await client.systemHealth();
+      const baseline = statusShell();
+      print(
+        "status",
+        {
+          ok: true,
+          status: health.status === "healthy" ? "healthy" : "degraded",
+          exitCode: 0,
+          data: {
+            ...baseline.data,
+            core: { status: "running", version: handshake.core_version },
+            vault: health.vault,
+            schema: health.schema,
+            index: health.index,
+          },
+          diagnostics: [],
+        },
+        options.json,
+        options.quiet,
+      );
+    } catch (error) {
+      if (!discoveryFound && (error as NodeJS.ErrnoException).code === "ENOENT") {
+        print("status", statusShell(), options.json, options.quiet);
+        return;
+      }
+      const code = error instanceof CoreClientError ? error.code : "CORE-503";
+      const baseline = statusShell();
+      print(
+        "status",
+        {
+          ...baseline,
+          ok: false,
+          exitCode: code.startsWith("VAULT-") ? 20 : 40,
+          diagnostics: [
+            {
+              code,
+              severity: "error",
+              message: "Ideomy Core authentication or handshake failed.",
+              remediation: "Check Core state and Vault identity with ideomy doctor.",
+              repairable: false,
+            },
+          ],
+        },
+        options.json,
+        options.quiet,
+      );
+    }
     return;
   }
   print("doctor", doctorShell(), options.json, options.quiet);

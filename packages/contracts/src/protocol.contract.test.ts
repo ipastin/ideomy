@@ -44,6 +44,29 @@ describe("Core protocol V1 contract adoption", () => {
     expect(generated(extra)).toBe(false);
     expect(runtime.safeParse(extra).success).toBe(false);
   });
+
+  it.each([
+    ["discovery", "started_at"],
+    ["pair-window-response", "expires_at"],
+    ["auth-challenge-response", "expires_at"],
+    ["auth-session-response", "expires_at"],
+  ] as const)("%s: timestamp follows RFC 3339 across seed, generated and runtime", (name, field) => {
+    const schema = read(`contracts/protocol/v1/${name}.schema.json`);
+    const seed = ajv.getSchema(schema.$id) ?? ajv.compile(schema);
+    const runtime = protocolSchemas[name];
+    const generated = ajv.compile(z.toJSONSchema(runtime));
+    const example = read(`contracts/examples/${name}.json`);
+    for (const [value, expected] of [
+      ["2026-10-12t12:00:00z", true],
+      ["2016-12-31T23:59:60Z", true],
+      ["2026-10-12T12:00:00+0300", false],
+    ] as const) {
+      const variant = { ...example, [field]: value };
+      expect(Boolean(seed(variant))).toBe(expected);
+      expect(Boolean(generated(variant))).toBe(expected);
+      expect(runtime.safeParse(variant).success).toBe(expected);
+    }
+  });
 });
 
 describe("CLI JSON V1 contract", () => {

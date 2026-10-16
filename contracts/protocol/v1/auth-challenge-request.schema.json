@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "client_instance_id": {
+      "type": "string"
+    },
+    "vault_id": {
+      "type": "string"
+    },
+    "vault_fingerprint": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "client_instance_id",
+    "vault_id",
+    "vault_fingerprint"
+  ],
+  "additionalProperties": false,
+  "$id": "https://ideomy.local/protocol/v1/auth-challenge-request.schema.json"
+}

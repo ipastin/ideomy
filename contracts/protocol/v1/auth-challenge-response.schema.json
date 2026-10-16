@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "nonce_id": {
+      "type": "string"
+    },
+    "nonce": {
+      "type": "string"
+    },
+    "expires_at": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}[Tt]\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:[Zz]|[+-]\\d{2}:\\d{2})$"
+    }
+  },
+  "required": [
+    "nonce_id",
+    "nonce",
+    "expires_at"
+  ],
+  "additionalProperties": false,
+  "$id": "https://ideomy.local/protocol/v1/auth-challenge-response.schema.json"
+}

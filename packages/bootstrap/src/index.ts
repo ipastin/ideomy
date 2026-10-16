@@ -27,7 +27,7 @@ export type Diagnostic = CliDiagnostic;
 export type ShellResult = {
   ok: boolean;
   status: "healthy" | "degraded" | "failed";
-  exitCode: 0 | 2 | 10 | 20;
+  exitCode: 0 | 2 | 10 | 20 | 40;
   data: Record<string, unknown>;
   diagnostics: Diagnostic[];
 };

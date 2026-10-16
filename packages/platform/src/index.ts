@@ -3,6 +3,14 @@ import { accessSync, constants, existsSync } from "node:fs";
 import { homedir, release } from "node:os";
 import { delimiter, join } from "node:path";
 
+export {
+  coreStateDirectory,
+  readCliAdminSecret,
+  readCoreDiscovery,
+  readCoreProfile,
+  readMachineLocalFile,
+} from "./core-state.ts";
+
 export interface EnvironmentSnapshot {
   platform: NodeJS.Platform;
   architecture: string;

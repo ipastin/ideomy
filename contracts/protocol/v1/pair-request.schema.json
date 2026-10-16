@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "client_instance_id": {
+      "type": "string"
+    },
+    "vault_id": {
+      "type": "string"
+    },
+    "vault_fingerprint": {
+      "type": "string"
+    },
+    "bootstrap_proof": {
+      "type": "string"
+    },
+    "public_key": {
+      "type": "object",
+      "properties": {
+        "kty": {
+          "type": "string",
+          "const": "EC"
+        },
+        "crv": {
+          "type": "string",
+          "const": "P-256"
+        },
+        "x": {
+          "type": "string"
+        },
+        "y": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kty",
+        "crv",
+        "x",
+        "y"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "client_instance_id",
+    "vault_id",
+    "vault_fingerprint",
+    "bootstrap_proof",
+    "public_key"
+  ],
+  "additionalProperties": false,
+  "$id": "https://ideomy.local/protocol/v1/pair-request.schema.json"
+}

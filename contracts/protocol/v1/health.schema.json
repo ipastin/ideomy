@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean",
+      "const": true
+    },
+    "protocol": {
+      "type": "number",
+      "const": 1
+    },
+    "core_instance_id": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "const": "ready"
+    }
+  },
+  "required": [
+    "ok",
+    "protocol",
+    "core_instance_id",
+    "status"
+  ],
+  "additionalProperties": false,
+  "$id": "https://ideomy.local/protocol/v1/health.schema.json"
+}

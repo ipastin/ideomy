@@ -2,5 +2,15 @@
   "name": "@ideomy/core",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "bin": {
+    "ideomy-core": "./src/main.ts"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ideomy/contracts": "workspace:*",
+    "@ideomy/platform": "workspace:*"
+  }
 }
