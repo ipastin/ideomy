@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -18,8 +19,9 @@ const appPackages = {
   cli: new Set(["bootstrap", "core-client", "platform", "contracts"]),
   "obsidian-plugin": new Set(["core-client", "contracts", "config"]),
 };
-const forbiddenProviderSdk = /^(?:openai|@anthropic-ai\/sdk|@google\/genai)$/;
-const nodeBuiltins = /^(?:node:|fs(?:\/|$)|path(?:\/|$)|child_process$|crypto$|os$|net$|http$)/;
+const forbiddenProviderSdk = /^(?:openai|@anthropic-ai\/sdk|@google\/genai)(?:\/|$)/;
+const nodeBuiltins = new Set(builtinModules.map((name) => name.replace(/^node:/, "").split("/")[0]));
+const importsNodeBuiltin = (specifier) => specifier.startsWith("node:") || nodeBuiltins.has(specifier.split("/")[0]);
 
 export function checkImport(owner, specifier, file) {
   const [kind, name] = owner;
@@ -31,10 +33,10 @@ export function checkImport(owner, specifier, file) {
     }
     return null;
   }
-  if (kind === "apps" && name === "obsidian-plugin" && nodeBuiltins.test(specifier)) {
+  if (kind === "apps" && name === "obsidian-plugin" && importsNodeBuiltin(specifier)) {
     return "Plugin imports Node API";
   }
-  if (kind === "packages" && name === "contracts" && nodeBuiltins.test(specifier)) {
+  if (kind === "packages" && name === "contracts" && importsNodeBuiltin(specifier)) {
     return "contracts import Node API";
   }
   if ((kind === "packages" || name === "core") && specifier === "obsidian") {

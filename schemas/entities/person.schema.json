@@ -12,6 +12,9 @@
         "type": {
           "const": "person"
         },
+        "id": {
+          "pattern": "^per_"
+        },
         "status": {
           "enum": [
             "active",

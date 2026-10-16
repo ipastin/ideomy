@@ -5,7 +5,8 @@ const wikiLink = z.string().regex(/^\[\[.+\]\]$/);
 const date = z.iso.date();
 const validateDateTime = (addFormats.default.get("date-time", "full") as { validate: (value: string) => boolean })
   .validate;
-const dateTime = z.string().refine(validateDateTime).meta({ format: "date-time" });
+const rfc3339DateTime = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/;
+const dateTime = z.string().regex(rfc3339DateTime).refine(validateDateTime).meta({ format: "date-time" });
 const uniqueStrings = z
   .array(z.string())
   .refine((items) => new Set(items).size === items.length)
@@ -63,12 +64,31 @@ export const managedEntityBase = z
   })
   .catchall(z.unknown());
 
+export const typePrefixes: Record<z.infer<typeof managedEntityBase>["type"], string> = {
+  area: "area",
+  project: "prj",
+  goal: "gol",
+  knowledge: "kn",
+  source: "src",
+  person: "per",
+  organization: "org",
+  decision: "dec",
+  meeting: "mtg",
+  event: "evt",
+  record: "rec",
+  asset: "ast",
+  place: "plc",
+  journal: "jrn",
+  system: "sys",
+};
+
 const entity = (
   type: z.infer<typeof managedEntityBase>["type"],
   statuses: [string, ...string[]],
   properties: z.ZodRawShape = {},
 ) =>
   managedEntityBase.extend({
+    id: z.string().regex(new RegExp(`^${typePrefixes[type]}_[0-9A-HJKMNP-TV-Z]{26}$`)),
     type: z.literal(type),
     status: z.enum(statuses),
     ...properties,
@@ -250,21 +270,3 @@ export const entitySchemas = {
 } as const;
 
 export type ManagedEntityType = keyof typeof entitySchemas;
-
-export const typePrefixes: Record<ManagedEntityType, string> = {
-  area: "area",
-  project: "prj",
-  goal: "gol",
-  knowledge: "kn",
-  source: "src",
-  person: "per",
-  organization: "org",
-  decision: "dec",
-  meeting: "mtg",
-  event: "evt",
-  record: "rec",
-  asset: "ast",
-  place: "plc",
-  journal: "jrn",
-  system: "sys",
-};

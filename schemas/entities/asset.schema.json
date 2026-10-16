@@ -12,6 +12,9 @@
         "type": {
           "const": "asset"
         },
+        "id": {
+          "pattern": "^ast_"
+        },
         "status": {
           "enum": [
             "planned",

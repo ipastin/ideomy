@@ -3,7 +3,8 @@ import { z } from "zod";
 
 const validateDateTime = (addFormats.default.get("date-time", "full") as { validate: (value: string) => boolean })
   .validate;
-const dateTime = z.string().refine(validateDateTime).meta({ format: "date-time" });
+const rfc3339DateTime = /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:[Zz]|[+-]\d{2}:\d{2})$/;
+const dateTime = z.string().regex(rfc3339DateTime).refine(validateDateTime).meta({ format: "date-time" });
 const object = z.record(z.string(), z.unknown());
 
 export const cliOutputSchema = z.strictObject({
