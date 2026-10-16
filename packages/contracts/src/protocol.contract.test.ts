@@ -21,14 +21,17 @@ describe("Core protocol V1 contract adoption", () => {
     expect(runtime.safeParse(example).success).toBe(true);
     if (name === "operation") {
       const operation = example as { created_at: string; updated_at: string };
-      const lowercase = {
-        ...operation,
-        created_at: operation.created_at.replace("T", "t").replace(/Z$/, "z"),
-        updated_at: operation.updated_at.replace("T", "t").replace(/Z$/, "z"),
-      };
-      expect(seed(lowercase)).toBe(true);
-      expect(generated(lowercase)).toBe(true);
-      expect(runtime.safeParse(lowercase).success).toBe(true);
+      for (const value of [
+        operation.created_at.replace("T", "t").replace(/Z$/, "z"),
+        "2016-12-31T23:59:60Z",
+        "2026-10-12 12:00:00Z",
+        "2026-10-12T12:00:00+0300",
+        "2026-13-12T12:00:00Z",
+      ]) {
+        const variant = { ...operation, created_at: value, updated_at: value };
+        expect(Boolean(generated(variant))).toBe(Boolean(seed(variant)));
+        expect(runtime.safeParse(variant).success).toBe(Boolean(seed(variant)));
+      }
     }
     const extra = { ...example, unexpected: true };
     expect(seed(extra)).toBe(false);
