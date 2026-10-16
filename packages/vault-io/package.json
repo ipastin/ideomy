@@ -2,5 +2,17 @@
   "name": "@ideomy/vault-io",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./watcher": "./src/watcher.ts"
+  },
+  "dependencies": {
+    "@ideomy/schema": "workspace:*",
+    "mdast-util-from-markdown": "2.0.2",
+    "yaml": "2.8.1"
+  },
+  "devDependencies": {
+    "@types/mdast": "4.0.4"
+  }
 }

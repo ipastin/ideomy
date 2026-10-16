@@ -5,7 +5,7 @@ import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 import YAML from "yaml";
 import { z } from "zod";
-import { entitySchemas, type ManagedEntityType } from "./index.js";
+import { entitySchemas, type ManagedEntityType, typePrefixes } from "./index.js";
 
 const root = path.resolve(import.meta.dirname, "../../..");
 const read = (name: string) => JSON.parse(fs.readFileSync(path.join(root, name), "utf8"));
@@ -52,6 +52,9 @@ describe("managed entity contract adoption", () => {
   it("covers every managed type with a synthetic fixture", () => {
     expect([...examples.keys()].sort()).toEqual(Object.keys(entitySchemas).sort());
     expect(Object.keys(registry.types).sort()).toEqual(Object.keys(entitySchemas).sort());
+    for (const [type, config] of Object.entries(registry.types)) {
+      expect(typePrefixes[type as ManagedEntityType]).toBe((config as { prefix: string }).prefix);
+    }
     for (const [type, schema] of Object.entries(entitySchemas)) {
       const generated = z.toJSONSchema(schema);
       const properties = generated.properties as Record<string, { enum?: string[] }> | undefined;
