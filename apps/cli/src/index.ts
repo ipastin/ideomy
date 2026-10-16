@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
 import { doctorShell, type ShellResult, setupShell, statusShell } from "@ideomy/bootstrap";
 import { cliOutputSchema } from "@ideomy/contracts";
@@ -35,6 +36,17 @@ type Parsed = {
   nonInteractive: boolean;
   error?: string;
 };
+
+export async function promptForSetup(
+  options: Pick<Parsed, "mode" | "vault">,
+  question: (message: string) => Promise<string>,
+): Promise<Pick<Parsed, "mode" | "vault">> {
+  const mode = options.mode ?? (await question("Create a new Vault or attach an existing one? [new/existing] ")).trim();
+  if (mode !== "new" && mode !== "existing") throw new Error("Choose new or existing.");
+  const vault = options.vault ?? (await question("Absolute Vault path: ")).trim();
+  if (!vault) throw new Error("Enter an absolute Vault path.");
+  return { mode, vault };
+}
 
 export function parseArgs(args: string[]): Parsed {
   const parsed: Parsed = {
@@ -120,6 +132,11 @@ const usageFailure = (message: string): ShellResult => ({
   ],
 });
 
+export function setupPromptFailure(error: unknown): ShellResult | 130 {
+  if (error instanceof Error && error.name === "AbortError") return 130;
+  return usageFailure(error instanceof Error ? error.message : "Setup input was cancelled.");
+}
+
 function print(command: string, result: ShellResult, json: boolean, quiet: boolean): void {
   if (json) {
     process.stdout.write(
@@ -137,7 +154,7 @@ function print(command: string, result: ShellResult, json: boolean, quiet: boole
   process.exitCode = result.exitCode;
 }
 
-export function run(args: string[] = process.argv.slice(2)): void {
+export async function run(args: string[] = process.argv.slice(2)): Promise<void> {
   const options = parseArgs(args);
   if (options.error) {
     print(options.command, usageFailure(options.error), options.json, options.quiet);
@@ -163,7 +180,8 @@ export function run(args: string[] = process.argv.slice(2)): void {
     return;
   }
   if (options.command === "setup") {
-    if ((options.nonInteractive || !process.stdin.isTTY) && (!options.mode || !options.vault)) {
+    const interactive = !options.nonInteractive && !options.json && process.stdin.isTTY && process.stdout.isTTY;
+    if (!interactive && (!options.mode || !options.vault)) {
       print(
         "setup",
         usageFailure(
@@ -176,12 +194,28 @@ export function run(args: string[] = process.argv.slice(2)): void {
       );
       return;
     }
+    if (interactive && (!options.mode || !options.vault)) {
+      const prompt = createInterface({ input: process.stdin, output: process.stdout });
+      try {
+        Object.assign(options, await promptForSetup(options, (message) => prompt.question(message)));
+      } catch (error) {
+        const failure = setupPromptFailure(error);
+        if (failure === 130) {
+          process.exitCode = 130;
+          return;
+        }
+        print("setup", failure, false, options.quiet);
+        return;
+      } finally {
+        prompt.close();
+      }
+    }
     print(
       "setup",
       setupShell({
         ...(options.mode ? { mode: options.mode } : {}),
         ...(options.vault ? { vault: options.vault } : {}),
-        nonInteractive: options.nonInteractive || !process.stdin.isTTY,
+        nonInteractive: !interactive,
       }),
       options.json,
       options.quiet,
@@ -195,4 +229,4 @@ export function run(args: string[] = process.argv.slice(2)): void {
   print("doctor", doctorShell(), options.json, options.quiet);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) run();
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void run();

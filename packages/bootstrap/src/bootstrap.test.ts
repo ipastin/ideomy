@@ -48,4 +48,35 @@ describe("M0.1 Bootstrap shell", () => {
     expect(doctor.ok).toBe(false);
     expect(doctor.exitCode).toBe(20);
   });
+
+  it("reports unsupported macOS architectures consistently across setup, status and doctor", () => {
+    const unsupported = { ...ready, architecture: "riscv64" };
+    expect(
+      setupShell({ mode: "new", vault: "/synthetic/ideomy", nonInteractive: true }, unsupported).diagnostics[0]?.code,
+    ).toBe("ENV-001");
+    expect((statusShell(unsupported).data.environment as { supported: boolean }).supported).toBe(false);
+    const doctor = doctorShell(unsupported);
+    expect(doctor.exitCode).toBe(10);
+    expect((doctor.data.checks as { layer: string; status: string }[])[0]).toEqual({
+      layer: "Environment",
+      status: "fail",
+    });
+    expect(doctor.diagnostics[0]?.code).toBe("ENV-001");
+    expect((statusShell({ ...ready, architecture: "x64" }).data.environment as { supported: boolean }).supported).toBe(
+      true,
+    );
+  });
+
+  it("diagnoses a registered but disabled Obsidian CLI without claiming it is enabled", () => {
+    const disabled = { ...ready, obsidianCliEnabled: false };
+    expect((statusShell(disabled).data.obsidian as { cli_enabled: string }).cli_enabled).toBe("unknown");
+    const doctor = doctorShell(disabled);
+    expect(doctor.exitCode).toBe(10);
+    expect((doctor.data.obsidian as { cli_enabled: boolean }).cli_enabled).toBe(false);
+    expect((doctor.data.checks as { layer: string; status: string }[])[1]).toEqual({
+      layer: "Obsidian / CLI",
+      status: "fail",
+    });
+    expect(doctor.diagnostics.map((issue) => issue.code)).toContain("OBS-003");
+  });
 });
