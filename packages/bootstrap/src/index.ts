@@ -51,6 +51,11 @@ export type SetupOptions = {
   nonInteractive: boolean;
 };
 
+const platformSupported = (environment: EnvironmentSnapshot): boolean =>
+  environment.platform === "darwin" &&
+  environment.macosVersionSupported &&
+  ["arm64", "x64"].includes(environment.architecture);
+
 export function setupShell(
   options: SetupOptions,
   environment: EnvironmentSnapshot = inspectSetupEnvironment(),
@@ -64,11 +69,7 @@ export function setupShell(
     diagnostics: [issue],
   });
 
-  if (
-    environment.platform !== "darwin" ||
-    !environment.macosVersionSupported ||
-    !["arm64", "x64"].includes(environment.architecture)
-  ) {
+  if (!platformSupported(environment)) {
     return blocked(
       "CHECK_PLATFORM",
       10,
@@ -158,7 +159,7 @@ export function statusShell(environment: EnvironmentSnapshot = inspectEnvironmen
       environment: {
         platform: environment.platform,
         architecture: environment.architecture,
-        supported: environment.macosVersionSupported,
+        supported: platformSupported(environment),
       },
       obsidian: {
         installed: environment.obsidianInstalled,
@@ -182,23 +183,28 @@ export function statusShell(environment: EnvironmentSnapshot = inspectEnvironmen
   };
 }
 
-export function doctorShell(environment: EnvironmentSnapshot = inspectEnvironment()): ShellResult {
+export function doctorShell(environment: EnvironmentSnapshot = inspectSetupEnvironment()): ShellResult {
   const result = statusShell(environment);
+  const supported = platformSupported(environment);
+  const cliUnavailable = !environment.obsidianCliRegistered || environment.obsidianCliEnabled === false;
   return {
     ...result,
     ok: false,
     status: "failed",
-    exitCode:
-      !environment.macosVersionSupported || !environment.obsidianInstalled || !environment.obsidianCliRegistered
-        ? 10
-        : 20,
+    exitCode: !supported || !environment.obsidianInstalled || cliUnavailable ? 10 : 20,
     data: {
       ...result.data,
+      obsidian: { ...(result.data.obsidian as object), cli_enabled: environment.obsidianCliEnabled ?? "unknown" },
       checks: [
-        { layer: "Environment", status: environment.macosVersionSupported ? "pass" : "fail" },
+        { layer: "Environment", status: supported ? "pass" : "fail" },
         {
           layer: "Obsidian / CLI",
-          status: environment.obsidianInstalled && environment.obsidianCliRegistered ? "unverified" : "fail",
+          status:
+            !environment.obsidianInstalled || cliUnavailable
+              ? "fail"
+              : environment.obsidianCliEnabled
+                ? "pass"
+                : "unverified",
         },
         ...[
           "Plugin",
@@ -217,7 +223,7 @@ export function doctorShell(environment: EnvironmentSnapshot = inspectEnvironmen
       ],
     },
     diagnostics: [
-      ...(!environment.macosVersionSupported
+      ...(!supported
         ? [
             diagnostic(
               "ENV-001",
@@ -235,6 +241,15 @@ export function doctorShell(environment: EnvironmentSnapshot = inspectEnvironmen
               "OBS-002",
               "Obsidian CLI is not registered in PATH.",
               "Enable it in Obsidian Settings → General and restart the terminal.",
+            ),
+          ]
+        : []),
+      ...(environment.obsidianCliRegistered && environment.obsidianCliEnabled === false
+        ? [
+            diagnostic(
+              "OBS-003",
+              "Obsidian CLI did not respond to its help command.",
+              "Open Obsidian, confirm Command line interface is enabled in Settings → General, then rerun ideomy doctor.",
             ),
           ]
         : []),
