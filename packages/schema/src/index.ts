@@ -1,12 +1,11 @@
+import addFormats from "ajv-formats";
 import { z } from "zod";
 
 const wikiLink = z.string().regex(/^\[\[.+\]\]$/);
 const date = z.iso.date();
-const isoDateTime = z.iso.datetime({ offset: true });
-const dateTime = z
-  .string()
-  .refine((value) => isoDateTime.safeParse(value.replace("t", "T").replace(/z$/, "Z")).success)
-  .meta({ format: "date-time" });
+const validateDateTime = (addFormats.default.get("date-time", "full") as { validate: (value: string) => boolean })
+  .validate;
+const dateTime = z.string().refine(validateDateTime).meta({ format: "date-time" });
 const uniqueStrings = z
   .array(z.string())
   .refine((items) => new Set(items).size === items.length)
