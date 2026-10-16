@@ -1,22 +1,28 @@
 ---
 title: "Ideomy System Specification"
 created: "06-10-26 16-40-00"
-updated: "12-10-26 16-30-30"
-version: "1.11.0"
+updated: "15-10-26 14-53-19"
+version: "1.11.1"
 status: "accepted"
-commit: "refactor(brand): adopt Ideomy canonical namespace"
+commit: "docs(bootstrap): separate Plugin P0 acceptance"
 ---
 
-# Ideomy System Specification v1.11.0
+# Ideomy System Specification v1.11.1
 
 Created: 06-10-26 16-40-00  
-Updated: 12-10-26 16-30-30  
-Version: 1.11.0  
-Change: `refactor(brand): adopt Ideomy canonical namespace`
+Updated: 15-10-26 14-53-19  
+Version: 1.11.1  
+Change: `docs(bootstrap): separate Plugin P0 acceptance`
 
 ## Generation note
 
 This consolidated specification is generated from current numbered Specification Pack documents. Machine-readable schemas/contracts/templates/fixtures/evals ship alongside the Pack and are normative where referenced. Historical superseded decisions remain only in ADR/Changelog.
+
+## v1.11.1 — 15-10-26
+
+- `docs(bootstrap): separate Plugin P0 acceptance`
+- ADR-143 accepts Plugin P0 integration at M0.4 without claiming full Bootstrap Foundation Healthy.
+- M0.5 owns the initial deterministic index, recovery and full Bootstrap Foundation acceptance.
 
 ## v1.11.0 — 12-10-26
 
@@ -30,7 +36,7 @@ This consolidated specification is generated from current numbered Specification
 
 ---
 
-<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Ideomy — Project Specification Pack
 
@@ -54,6 +60,8 @@ product intent
 ```
 
 ## 2. Implementation-readiness status
+
+`v0.11.1` accepts ADR-143: Plugin P0 integration may be accepted at M0.4 on a real macOS Obsidian/Core smoke test. Full Bootstrap Foundation, including an initial deterministic index and `doctor Healthy`, remains an M0.5 acceptance gate. The existing package, protocol, privacy and hard eval contracts are unchanged.
 
 `v0.11.0` performs the final pre-code **canonical brand and namespace rename from Ideome to Ideomy**. All current product, repository, CLI, Plugin, Core/MCP, configuration, schema and Web Capture namespaces now use `Ideomy` / `ideomy`. The v0.10.0 Web Capture V1 and v0.9.0 Implementation Readiness contracts remain otherwise unchanged.
 
@@ -277,7 +285,6 @@ browser / Obsidian Web Clipper
 ```
 
 A custom Ideomy browser extension is explicitly **not required for V1**. It may be reconsidered only for browser-native Ideomy capabilities such as related-knowledge surfacing, Ask Ideomy, project routing and duplicate-aware capture before save.
-
 ---
 
 <!-- SOURCE: 01_PRODUCT__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
@@ -3936,7 +3943,7 @@ Browser capture must remain fast and low-friction. Area, Project, Topic and Know
 
 ---
 
-<!-- SOURCE: 11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Implementation Blueprint & Roadmap
 
@@ -4071,19 +4078,20 @@ Vault identity state
 Exit:
 
 ```text
-ideomy setup
-→ plugin enabled
-→ Core paired
-→ doctor Healthy
+supported Alpha/development path installs/enables Plugin
+→ real Obsidian Plugin pairs/authenticates with Core
+→ compatible handshake/status and active Vault identity verified
+→ Plugin P0 acceptance in 19_OBSIDIAN_PLUGIN passes
 ```
 
-No LLM required.
+Verify the installed Plugin and Core with a real macOS Obsidian smoke test. Missing schema/index capability is reported truthfully; overall Bootstrap Foundation `doctor Healthy` is not an M0.4 acceptance claim. No LLM required.
 
-## 9. M0.5 — Bootstrap hardening
+## 9. M0.5 — Bootstrap Foundation completion and hardening
 
 Add:
 
 ```text
+minimal deterministic Vault parse/schema/index and health checks from 16_BOOTSTRAP
 idempotent setup/resume
 existing-Vault non-destructive flow
 repair/update/uninstall foundations
@@ -4092,11 +4100,11 @@ interruption tests
 support diagnostics
 ```
 
-M0 is complete only after clean-machine and interrupted-install acceptance tests pass.
+M0 and Bootstrap Foundation are complete only when the full `16_BOOTSTRAP` Definition of Done passes, including `ideomy doctor Healthy` with a current initial deterministic index, and clean-machine and interrupted-install acceptance tests pass.
 
 ## 10. M1 — Structured index / FTS
 
-Implement SQLite schema/migrations per `22_ENGINEERING_FOUNDATION` and Vault contracts:
+Expand the minimal Bootstrap index into the structured SQLite/FTS index. Implement schema/migrations per `22_ENGINEERING_FOUNDATION` and Vault contracts:
 
 ```text
 entities
@@ -4270,10 +4278,9 @@ ship/import Web Clipper template pack
 M0 health does not require Web Clipper installation. Web Capture V1 can be enabled after Vault bootstrap without changing Core architecture.
 
 Do not begin a custom browser extension unless a new ADR demonstrates product value beyond clipping parity.
-
 ---
 
-<!-- SOURCE: 12_EVALS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 12_EVALS__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Evaluation & Quality Gates
 
@@ -4424,6 +4431,8 @@ mobile_no_node_imports
 settings_secret_redaction
 ```
 
+M0.4 promotion requires the applicable Plugin P0 cases above (startup/lifecycle, authenticated handshake, compatibility, Core-offline behavior, active Vault isolation, mobile import safety and secret redaction) plus a real macOS Obsidian/Core smoke test on a synthetic Vault. Product Plugin capabilities remain gated by their later milestones.
+
 ## 8. CLI/bootstrap suites
 
 ```text
@@ -4437,6 +4446,8 @@ exit/diagnostic codes
 Core/Plugin mismatch
 uninstall preserves Vault
 ```
+
+The complete CLI/bootstrap suite, including the initial deterministic index and `doctor Healthy`, gates Bootstrap Foundation acceptance at M0.5. M0.4 Plugin P0 acceptance does not waive these cases or the hard gates above.
 
 ## 9. Model Gateway suites
 
@@ -4507,10 +4518,9 @@ Hard gates from `evals/thresholds.json`:
 web_capture_contract_validity = 1.00
 web_capture_policy_override_failures = 0
 ```
-
 ---
 
-<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Architecture Decision Record Index
 
@@ -4816,7 +4826,7 @@ All decisions below are current for Ideomy specification pack v0.3.0 unless expl
 
 ### ADR-074
 
-**Accepted:** The first installable Ideomy vertical slice is Bootstrap Foundation: `ideomy setup → Plugin + Core + external Vault → minimal parse/validate/index → ideomy doctor → Healthy`. AI/LLM capabilities are not required for this milestone.
+**Accepted, with first-installable attribution superseded by ADR-143:** Bootstrap Foundation requires `ideomy setup → Plugin + Core + external Vault → minimal parse/validate/index → ideomy doctor → Healthy`. AI/LLM capabilities are not required for this milestone. ADR-143 allows earlier independent acceptance of Plugin P0 integration without changing these Foundation requirements.
 
 ### ADR-075
 
@@ -5088,6 +5098,13 @@ Implementation convenience alone is not sufficient reason to silently violate an
 ### ADR-141
 **Accepted:** The canonical product name changes from **Ideome** to **Ideomy** before implementation begins. The technical namespace changes with it: repository `ideomy`, CLI `ideomy`, package scope `@ideomy/*`, Plugin/Core/MCP/tool/config/runtime/schema identifiers use `ideomy`, and protocol headers use `X-Ideomy-*`. The former `Ideome` / `ideome` names are historical only and require no runtime compatibility alias because no public implementation has shipped.
 
+# Implementation Decisions — M0.3/M0.4
+
+### ADR-142
+**Accepted:** V1 Core authentication completes the setup-authorized Plugin pairing window, P-256 nonce challenge, machine-local CLI administration and short-lived Vault-scoped sessions using versioned contracts. See `docs/adr/ADR-142_CORE_AUTH_ENDPOINTS`.
+
+### ADR-143
+**Accepted:** M0.4 Plugin P0 integration is independently installable and reviewable before full Bootstrap Foundation acceptance. M0.5 completes the existing Foundation minimum index, `doctor Healthy` and recovery gates. This narrowly supersedes ADR-074's attribution of the first installable slice; its full Foundation requirements remain accepted. See `docs/adr/ADR-143_PLUGIN_P0_ACCEPTANCE`.
 ---
 
 <!-- SOURCE: 14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
@@ -5819,7 +5836,7 @@ Public V1 supports the official Web Clipper route across the browsers/platforms 
 
 ---
 
-<!-- SOURCE: 16_BOOTSTRAP__created-09-10-26_16-54-26__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 16_BOOTSTRAP__created-09-10-26_16-54-26__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Ideomy Bootstrap Foundation
 
@@ -5840,6 +5857,8 @@ clean supported desktop
 ```
 
 No LLM, embeddings, MCP or advanced Agent workflow is required for Bootstrap Foundation acceptance.
+
+M0.4 accepts the installed Plugin P0 integration as an engineering milestone. It does not claim completion of this full Bootstrap Foundation journey. The full criteria below are accepted only after M0.5.
 
 ## 2. User promise
 
@@ -6156,7 +6175,7 @@ All automated cases use synthetic disposable fixtures.
 
 ## 20. Bootstrap Definition of Done
 
-Bootstrap Foundation is accepted only when all are true:
+Bootstrap Foundation is accepted after M0.5 only when all are true:
 
 - one canonical setup command can create or attach a Vault;
 - Plugin installation/enabling uses the supported Obsidian path;
@@ -6201,19 +6220,21 @@ create/attach, mutation plan, starter scaffold, existing-Vault non-destructive r
 ### Slice C — Plugin + Core delivery
 supported Plugin install/enable, Core install/start, config and handshake.
 
+The Plugin P0 portion of Slice C is independently accepted at M0.4 through a real Obsidian/Core smoke test. Alpha/development installation may follow the supported local development path; it is not a claim that public Community Plugin distribution is available.
+
 ### Slice D — deterministic substrate
 minimal parser/schema/index + health checks.
 
 ### Slice E — recovery
 idempotency, persisted state, interruption tests, update/uninstall contracts.
 
-Each slice must add tests before moving to the next.
+Slices D and E complete Bootstrap Foundation in M0.5. Each slice must add tests before moving to the next.
 
 # 24. AI configuration boundary
 
 Bootstrap may offer model configuration after Core/Vault health is established, but it must be skippable.
 
-Healthy Bootstrap Foundation requires:
+Healthy Bootstrap Foundation, accepted after M0.5 rather than at Plugin P0 acceptance, requires:
 
 ```text
 Vault reachable
@@ -6283,7 +6304,6 @@ Enable browser capture
 ```
 
 Bootstrap must not silently install browser extensions or block on them.
-
 ---
 
 <!-- SOURCE: 17_MODEL_GATEWAY__created-10-10-26_09-37-47__updated-12-10-26_16-30-30__v0.11.0.md -->
@@ -7859,7 +7879,7 @@ CLI talks to Core through shared CoreClient/protocol contracts from `21`; reposi
 
 ---
 
-<!-- SOURCE: 19_OBSIDIAN_PLUGIN__created-10-10-26_14-56-08__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 19_OBSIDIAN_PLUGIN__created-10-10-26_14-56-08__updated-15-10-26_14-53-19__v0.11.1.md -->
 
 # Ideomy Obsidian Plugin — Product & Technical Contract
 
@@ -8806,14 +8826,14 @@ Ideomy View may persist normal workspace layout through Obsidian workspace mecha
 
 Do not persist sensitive query/answer content in workspace state merely to restore layout. Session content persistence requires an explicit product decision.
 
-## 52. Bootstrap Plugin acceptance
+## 52. Bootstrap Plugin P0 acceptance — M0.4
 
 Bootstrap Plugin is complete when:
 
 - installs/enables through supported bootstrap path;
 - loads without heavy work;
 - exposes Plugin version/status;
-- connects/handshakes with healthy Core;
+- authenticates and handshakes with a running compatible Core;
 - detects missing/stopped/incompatible Core;
 - verifies active Vault identity;
 - can open minimal Ideomy View;
@@ -8821,6 +8841,8 @@ Bootstrap Plugin is complete when:
 - remains data-loss safe when removed;
 - works without LLM configuration;
 - mobile installation/degraded behavior does not crash if `isDesktopOnly: false`.
+
+Acceptance includes a real macOS Obsidian/Core smoke test using a synthetic Vault. This Plugin integration gate is separate from full Bootstrap Foundation `doctor Healthy`, which also requires the initial deterministic index and is completed in M0.5.
 
 ## 53. Product Plugin MVP acceptance
 
@@ -9038,7 +9060,6 @@ Plugin pairing/discovery/request schemas are no longer implementation-specific: 
 The Obsidian Plugin is not responsible for browser extraction. V1 browser capture is provided by official Obsidian Web Clipper templates writing to `01 Inbox/Web`.
 
 Plugin may expose Inbox/processing status and actions after the capture reaches the Vault. It must not duplicate Web Clipper browser-extension functionality.
-
 ---
 
 <!-- SOURCE: 20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md -->

@@ -1,0 +1,9 @@
+{
+  "id": "ideomy",
+  "name": "Ideomy",
+  "version": "0.0.1",
+  "minAppVersion": "1.14.4",
+  "description": "Ideomy Core connection and diagnostics (development Plugin P0).",
+  "author": "Ideomy",
+  "isDesktopOnly": false
+}

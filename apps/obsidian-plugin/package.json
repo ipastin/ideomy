@@ -1,6 +1,19 @@
 {
   "name": "@ideomy/obsidian-plugin",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "scripts": {
+    "build": "esbuild src/main.ts --bundle --platform=browser --format=cjs --target=es2022 --external:obsidian --outfile=dist/main.js && cp manifest.json dist/manifest.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ideomy/core-client": "workspace:*",
+    "@ideomy/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "fake-indexeddb": "6.2.5",
+    "obsidian": "1.14.4"
+  }
 }

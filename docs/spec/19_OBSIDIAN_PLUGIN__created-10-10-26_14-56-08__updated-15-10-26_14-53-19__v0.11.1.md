@@ -1,18 +1,18 @@
 ---
 title: "Ideomy Obsidian Plugin — Product & Technical Contract"
 created: "10-10-26 14-56-08"
-updated: "12-10-26 16-30-30"
-version: "0.11.0"
+updated: "15-10-26 14-53-19"
+version: "0.11.1"
 status: "accepted"
-commit: "refactor(brand): adopt Ideomy canonical namespace"
+commit: "docs(bootstrap): separate Plugin P0 acceptance"
 ---
 
 # Ideomy Obsidian Plugin — Product & Technical Contract
 
 Created: 10-10-26 14-56-08  
-Updated: 12-10-26 16-30-30  
-Version: 0.11.0  
-Change: `refactor(brand): adopt Ideomy canonical namespace`
+Updated: 15-10-26 14-53-19  
+Version: 0.11.1  
+Change: `docs(bootstrap): separate Plugin P0 acceptance`
 
 ## 1. Purpose
 
@@ -956,14 +956,14 @@ Ideomy View may persist normal workspace layout through Obsidian workspace mecha
 
 Do not persist sensitive query/answer content in workspace state merely to restore layout. Session content persistence requires an explicit product decision.
 
-## 52. Bootstrap Plugin acceptance
+## 52. Bootstrap Plugin P0 acceptance — M0.4
 
 Bootstrap Plugin is complete when:
 
 - installs/enables through supported bootstrap path;
 - loads without heavy work;
 - exposes Plugin version/status;
-- connects/handshakes with healthy Core;
+- authenticates and handshakes with a running compatible Core;
 - detects missing/stopped/incompatible Core;
 - verifies active Vault identity;
 - can open minimal Ideomy View;
@@ -971,6 +971,8 @@ Bootstrap Plugin is complete when:
 - remains data-loss safe when removed;
 - works without LLM configuration;
 - mobile installation/degraded behavior does not crash if `isDesktopOnly: false`.
+
+Acceptance includes a real macOS Obsidian/Core smoke test using a synthetic Vault. This Plugin integration gate is separate from full Bootstrap Foundation `doctor Healthy`, which also requires the initial deterministic index and is completed in M0.5.
 
 ## 53. Product Plugin MVP acceptance
 

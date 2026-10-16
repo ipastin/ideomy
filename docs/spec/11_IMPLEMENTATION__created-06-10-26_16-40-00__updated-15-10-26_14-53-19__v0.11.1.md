@@ -1,18 +1,18 @@
 ---
 title: "Implementation Blueprint & Roadmap"
 created: "06-10-26 16-40-00"
-updated: "12-10-26 16-30-30"
-version: "0.11.0"
+updated: "15-10-26 14-53-19"
+version: "0.11.1"
 status: "accepted"
-commit: "refactor(brand): adopt Ideomy canonical namespace"
+commit: "docs(bootstrap): separate Plugin P0 acceptance"
 ---
 
 # Implementation Blueprint & Roadmap
 
 Created: 06-10-26 16-40-00  
-Updated: 12-10-26 16-30-30  
-Version: 0.11.0  
-Change: `refactor(brand): adopt Ideomy canonical namespace`
+Updated: 15-10-26 14-53-19  
+Version: 0.11.1  
+Change: `docs(bootstrap): separate Plugin P0 acceptance`
 
 ## 1. Purpose
 
@@ -144,19 +144,20 @@ Vault identity state
 Exit:
 
 ```text
-ideomy setup
-→ plugin enabled
-→ Core paired
-→ doctor Healthy
+supported Alpha/development path installs/enables Plugin
+→ real Obsidian Plugin pairs/authenticates with Core
+→ compatible handshake/status and active Vault identity verified
+→ Plugin P0 acceptance in 19_OBSIDIAN_PLUGIN passes
 ```
 
-No LLM required.
+Verify the installed Plugin and Core with a real macOS Obsidian smoke test. Missing schema/index capability is reported truthfully; overall Bootstrap Foundation `doctor Healthy` is not an M0.4 acceptance claim. No LLM required.
 
-## 9. M0.5 — Bootstrap hardening
+## 9. M0.5 — Bootstrap Foundation completion and hardening
 
 Add:
 
 ```text
+minimal deterministic Vault parse/schema/index and health checks from 16_BOOTSTRAP
 idempotent setup/resume
 existing-Vault non-destructive flow
 repair/update/uninstall foundations
@@ -165,11 +166,11 @@ interruption tests
 support diagnostics
 ```
 
-M0 is complete only after clean-machine and interrupted-install acceptance tests pass.
+M0 and Bootstrap Foundation are complete only when the full `16_BOOTSTRAP` Definition of Done passes, including `ideomy doctor Healthy` with a current initial deterministic index, and clean-machine and interrupted-install acceptance tests pass.
 
 ## 10. M1 — Structured index / FTS
 
-Implement SQLite schema/migrations per `22_ENGINEERING_FOUNDATION` and Vault contracts:
+Expand the minimal Bootstrap index into the structured SQLite/FTS index. Implement schema/migrations per `22_ENGINEERING_FOUNDATION` and Vault contracts:
 
 ```text
 entities
