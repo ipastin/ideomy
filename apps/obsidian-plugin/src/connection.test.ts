@@ -154,17 +154,17 @@ describe("Plugin Core connection", () => {
     connection.stop();
   });
 
-  it("rejects a setup hint for another Vault path or changed identity before network or persistence", async () => {
-    for (const wrong of [
-      { ...metadata, vaultPath: "/synthetic/two" },
-      { ...metadata, vaultFingerprint: "another-fingerprint" },
-      { ...metadata, discovery: { ...discovery, vault_id: "vault_another" } },
-    ]) {
+  it("rejects another Vault path even with proof and changed identity without proof", async () => {
+    for (const [wrong, proof] of [
+      [{ ...metadata, vaultPath: "/synthetic/two" }, "synthetic-once"],
+      [{ ...metadata, vaultFingerprint: "another-fingerprint" }, ""],
+      [{ ...metadata, discovery: { ...discovery, vault_id: "vault_another" } }, ""],
+    ] as const) {
       const store = new LocalStore(crypto.randomUUID());
       await store.write("connection:/synthetic/one", metadata);
       const { transport } = fixture();
       const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => wrong);
-      await connection.connect("synthetic-once");
+      await connection.connect(proof);
       expect(connection.state.state).toBe("wrong-vault");
       expect(transport).not.toHaveBeenCalled();
       expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
@@ -321,6 +321,43 @@ describe("Plugin Core connection", () => {
     expect(reloaded.state.state).toBe("connected");
     expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
     reloaded.stop();
+  });
+
+  it("accepts a reinstalled Core identity only after a new one-time pairing proof", async () => {
+    const replacement = {
+      ...metadata,
+      discovery: { ...discovery, instance_id: "core_reinstalled", vault_id: "vault_reinstalled", port: 31235 },
+      vaultFingerprint: "synthetic-reinstalled-fingerprint",
+    };
+    const store = new LocalStore(crypto.randomUUID());
+    await store.write("connection:/synthetic/one", metadata);
+    const { transport, requests } = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: replacement.discovery.instance_id, status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-new-session",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: replacement.discovery.instance_id,
+        vault_id: replacement.discovery.vault_id,
+      },
+      "/v1/handshake": {
+        ...handshake,
+        core_instance_id: replacement.discovery.instance_id,
+        vault_id: replacement.discovery.vault_id,
+        vault_fingerprint: replacement.vaultFingerprint,
+      },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => replacement);
+    await connection.connect();
+    expect(connection.state.state).toBe("wrong-vault");
+    expect(requests).toHaveLength(0);
+    expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+    await connection.connect("synthetic-new-proof");
+    expect(connection.state.state).toBe("connected");
+    expect(requests.find((request) => request.route === "/v1/pair/request")?.body.bootstrap_proof).toBe(
+      "synthetic-new-proof",
+    );
+    expect(await store.read("connection:/synthetic/one")).toEqual(replacement);
+    connection.stop();
   });
 
   it("aborts in-flight requests and suppresses late UI updates after unload", async () => {

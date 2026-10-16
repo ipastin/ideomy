@@ -93,9 +93,11 @@ export class PluginConnection {
       if (discovered !== undefined && previous) {
         const known = parseConnection(previous);
         this.checkActiveVault(known);
+        // A new Core/Vault identity replaces a cached hint only after explicit pairing succeeds.
         if (
-          known.discovery.vault_id !== checked.discovery.vault_id ||
-          known.vaultFingerprint !== checked.vaultFingerprint
+          (known.discovery.vault_id !== checked.discovery.vault_id ||
+            known.vaultFingerprint !== checked.vaultFingerprint) &&
+          !proof
         ) {
           throw new CoreClientError("VAULT-004", "Setup connection hint changed the active Vault identity.");
         }
