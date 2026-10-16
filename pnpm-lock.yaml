@@ -271,6 +271,9 @@ importers:
 
   packages/contracts:
     dependencies:
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.17.1)
       zod:
         specifier: 4.6.0
         version: 4.6.0
@@ -293,6 +296,9 @@ importers:
 
   packages/schema:
     dependencies:
+      ajv-formats:
+        specifier: 3.0.1
+        version: 3.0.1(ajv@8.17.1)
       zod:
         specifier: 4.6.0
         version: 4.6.0
