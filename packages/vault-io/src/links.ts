@@ -35,7 +35,7 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
   };
   collectDefinitions(tree);
 
-  const visit = (node: Nodes): void => {
+  const visit = (node: Nodes, parentType?: Nodes["type"]): void => {
     if (node.type === "heading") structure.headings.push({ level: node.depth, text: nodeText(node) });
     if (node.type === "link")
       structure.links.push({ kind: "markdown", target: node.url, alias: nodeText(node), embed: false });
@@ -83,11 +83,13 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
           structure.fences.push({ line: end.line, boundary: "close" });
       }
     }
-    if (node.type === "html" && node.position) {
+    // AUTO ownership applies only to standalone top-level markers, never quoted or inline user text.
+    if (node.type === "html" && parentType === "root" && node.position) {
       for (const match of node.value.matchAll(/<!-- (BEGIN|END) AUTO:([a-zA-Z0-9_-]+) -->/g)) {
         const name = match[2];
         if (!name) continue;
         const line = node.position.start.line + (node.value.slice(0, match.index).match(/\n/g) ?? []).length;
+        if (lines[line - 1]?.trim() !== match[0]) continue;
         if (match[1] === "BEGIN") {
           if (seenAuto.has(name) || openAuto.has(name)) structure.autoIssues.push(`duplicate AUTO marker: ${name}`);
           else {
@@ -107,7 +109,7 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
         }
       }
     }
-    if ("children" in node) for (const child of node.children) visit(child);
+    if ("children" in node) for (const child of node.children) visit(child, node.type);
   };
 
   visit(tree);
