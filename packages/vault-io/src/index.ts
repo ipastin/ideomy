@@ -357,3 +357,54 @@ export function planScalarPropertyChange(
   }
   return { preconditionHash: note.hash, candidate, candidateHash: hashRaw(candidate) };
 }
+
+export function planAutoBodyChange(
+  note: ParsedNote,
+  name: string,
+  replacement: string,
+): { preconditionHash: string; candidate: Buffer; candidateHash: string } {
+  const section = note.structure.autoSections.find((entry) => entry.name === name);
+  if (
+    note.kind !== "managed" ||
+    note.newline === "mixed" ||
+    /\r(?!\n)/.test(note.text) ||
+    note.structure.autoIssues.length ||
+    !section
+  )
+    throw new VaultError("VAULT-108", "AUTO body change requires a valid managed note and a unique marker pair.");
+
+  const lineStarts = [0];
+  for (let i = 0; i < note.bodyBytes.length; i++) if (note.bodyBytes[i] === 10) lineStarts.push(i + 1);
+  const start = lineStarts[section.begin];
+  const end = lineStarts[section.end - 1];
+  if (start === undefined || end === undefined || start > end)
+    throw new VaultError("VAULT-108", "AUTO section boundaries are invalid.");
+
+  const newline = note.newline === "CRLF" ? "\r\n" : "\n";
+  const normalized = replacement.replace(/\r\n?|\n/g, "\n").replace(/\n/g, newline);
+  const payload = normalized && !normalized.endsWith(newline) ? normalized + newline : normalized;
+  const bodyOffset = note.raw.length - note.bodyBytes.length;
+  const candidate = Buffer.concat([
+    note.raw.subarray(0, bodyOffset + start),
+    Buffer.from(payload),
+    note.raw.subarray(bodyOffset + end),
+  ]);
+  // Bind parsed boundaries to the original marker lines after the payload shifts them.
+  const lineDelta = (payload.match(/\n/g) ?? []).length - (section.end - section.begin - 1);
+  const expectedSections = note.structure.autoSections.map((entry) => {
+    if (entry.name === name) return { ...entry, end: entry.end + lineDelta };
+    if (entry.begin > section.end) return { ...entry, begin: entry.begin + lineDelta, end: entry.end + lineDelta };
+    if (entry.end < section.begin) return entry;
+    throw new VaultError("VAULT-108", "Nested AUTO sections cannot be replaced independently.");
+  });
+  const checked = parseMarkdown(candidate, note.mapping);
+  if (
+    checked.kind !== "managed" ||
+    checked.logicalProperties?.id !== note.logicalProperties?.id ||
+    checked.structure.autoIssues.length ||
+    JSON.stringify(checked.structure.autoSections) !== JSON.stringify(expectedSections)
+  ) {
+    throw new VaultError("VAULT-108", "AUTO body candidate changes managed identity or marker structure.");
+  }
+  return { preconditionHash: note.hash, candidate, candidateHash: hashRaw(candidate) };
+}
