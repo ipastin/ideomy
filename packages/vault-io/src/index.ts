@@ -364,7 +364,13 @@ export function planAutoBodyChange(
   replacement: string,
 ): { preconditionHash: string; candidate: Buffer; candidateHash: string } {
   const section = note.structure.autoSections.find((entry) => entry.name === name);
-  if (note.kind !== "managed" || note.newline === "mixed" || note.structure.autoIssues.length || !section)
+  if (
+    note.kind !== "managed" ||
+    note.newline === "mixed" ||
+    /\r(?!\n)/.test(note.text) ||
+    note.structure.autoIssues.length ||
+    !section
+  )
     throw new VaultError("VAULT-108", "AUTO body change requires a valid managed note and a unique marker pair.");
 
   const lineStarts = [0];
@@ -383,13 +389,20 @@ export function planAutoBodyChange(
     Buffer.from(payload),
     note.raw.subarray(bodyOffset + end),
   ]);
+  // Bind parsed boundaries to the original marker lines after the payload shifts them.
+  const lineDelta = (payload.match(/\n/g) ?? []).length - (section.end - section.begin - 1);
+  const expectedSections = note.structure.autoSections.map((entry) => {
+    if (entry.name === name) return { ...entry, end: entry.end + lineDelta };
+    if (entry.begin > section.end) return { ...entry, begin: entry.begin + lineDelta, end: entry.end + lineDelta };
+    if (entry.end < section.begin) return entry;
+    throw new VaultError("VAULT-108", "Nested AUTO sections cannot be replaced independently.");
+  });
   const checked = parseMarkdown(candidate, note.mapping);
   if (
     checked.kind !== "managed" ||
     checked.logicalProperties?.id !== note.logicalProperties?.id ||
     checked.structure.autoIssues.length ||
-    checked.structure.autoSections.map((entry) => entry.name).join("\0") !==
-      note.structure.autoSections.map((entry) => entry.name).join("\0")
+    JSON.stringify(checked.structure.autoSections) !== JSON.stringify(expectedSections)
   ) {
     throw new VaultError("VAULT-108", "AUTO body candidate changes managed identity or marker structure.");
   }

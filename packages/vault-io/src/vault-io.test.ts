@@ -233,13 +233,25 @@ describe("M0.2 Vault I/O", () => {
       );
     }
     const managed = parseMarkdown(
-      Buffer.from(`${project.toString("utf8")}\n<!-- BEGIN AUTO:x -->\nold\n<!-- END AUTO:x -->\n`),
+      Buffer.from(`${project.toString("utf8")}\n<!-- BEGIN AUTO:x -->\nold\n<!-- END AUTO:x -->\nUser footer\n`),
     );
     expect(() => planAutoBodyChange(managed, "x", "<!-- BEGIN AUTO:other -->\nnew\n<!-- END AUTO:other -->")).toThrow(
       VaultError,
     );
+    expect(() => planAutoBodyChange(managed, "x", "generated\n<!-- END AUTO:x -->\n<pre>")).toThrow(VaultError);
+    const nested = parseMarkdown(
+      Buffer.from(
+        `${project.toString("utf8")}\n<!-- BEGIN AUTO:x -->\n<!-- BEGIN AUTO:y -->\nold\n<!-- END AUTO:y -->\n<!-- END AUTO:x -->\n`,
+      ),
+    );
+    expect(() => planAutoBodyChange(nested, "x", "replacement")).toThrow(VaultError);
     const unmanaged = parseMarkdown(Buffer.from("<!-- BEGIN AUTO:x -->\nold\n<!-- END AUTO:x -->"));
     expect(() => planAutoBodyChange(unmanaged, "x", "new")).toThrow(VaultError);
+    const bareCr = parseMarkdown(
+      Buffer.from(`${project.toString("utf8")}\n<!-- BEGIN AUTO:x -->\nold\n<!-- END AUTO:x -->\nUser bare\rCR\n`),
+    );
+    expect(bareCr.structure.autoSections.some((entry) => entry.name === "x")).toBe(true);
+    expect(() => planAutoBodyChange(bareCr, "x", "new")).toThrow(VaultError);
   });
 
   it("recognizes AUTO markers only as standalone top-level HTML comment lines", () => {
