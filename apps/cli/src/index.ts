@@ -56,6 +56,17 @@ type Parsed = {
   error?: string;
 };
 
+export async function promptForSetup(
+  options: Pick<Parsed, "mode" | "vault">,
+  question: (message: string) => Promise<string>,
+): Promise<Pick<Parsed, "mode" | "vault">> {
+  const mode = options.mode ?? (await question("Create a new Vault or attach an existing one? [new/existing] ")).trim();
+  if (mode !== "new" && mode !== "existing") throw new Error("Choose new or existing.");
+  const vault = options.vault ?? (await question("Absolute Vault path: ")).trim();
+  if (!vault) throw new Error("Enter an absolute Vault path.");
+  return { mode, vault };
+}
+
 export function parseArgs(args: string[]): Parsed {
   const parsed: Parsed = {
     command: "help",
@@ -152,6 +163,11 @@ const usageFailure = (message: string): ShellResult => ({
   ],
 });
 
+export function setupPromptFailure(error: unknown): ShellResult | 130 {
+  if (error instanceof Error && error.name === "AbortError") return 130;
+  return usageFailure(error instanceof Error ? error.message : "Setup input was cancelled.");
+}
+
 function print(command: string, result: ShellResult, json: boolean, quiet: boolean): void {
   if (json) {
     process.stdout.write(
@@ -212,17 +228,8 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     if (interactive) {
       const prompt = createInterface({ input: process.stdin, output: process.stdout });
       try {
-        if (!options.mode) {
-          const choice = (
-            await prompt.question("Create a new Vault or attach an existing one? [new/existing] ")
-          ).trim();
-          if (choice !== "new" && choice !== "existing") {
-            print("setup", usageFailure("Choose new or existing."), false, options.quiet);
-            return;
-          }
-          options.mode = choice;
-        }
-        if (!options.vault) options.vault = (await prompt.question("Absolute Vault path: ")).trim();
+        if (!options.mode || !options.vault)
+          Object.assign(options, await promptForSetup(options, (message) => prompt.question(message)));
         if (!options.yes) {
           const preview = await setupFoundation({
             ...(options.mode ? { mode: options.mode } : {}),
@@ -241,6 +248,14 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
             return;
           }
         }
+      } catch (error) {
+        const failure = setupPromptFailure(error);
+        if (failure === 130) {
+          process.exitCode = 130;
+          return;
+        }
+        print("setup", failure, false, options.quiet);
+        return;
       } finally {
         prompt.close();
       }
@@ -251,7 +266,7 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
         ...(options.mode ? { mode: options.mode } : {}),
         ...(options.vault ? { vault: options.vault } : {}),
         ...(options.channel ? { channel: options.channel } : {}),
-        nonInteractive: options.nonInteractive || !process.stdin.isTTY,
+        nonInteractive: !interactive,
         yes: options.yes,
         skipOpen: options.skipOpen,
         skipIndex: options.skipIndex,
