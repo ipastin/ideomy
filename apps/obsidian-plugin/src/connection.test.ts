@@ -85,6 +85,177 @@ describe("Plugin local credentials", () => {
 });
 
 describe("Plugin Core connection", () => {
+  it("reads setup hints without manual JSON and refreshes Core port/instance with the same local identity", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    let hint = metadata;
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
+    const discover = vi.fn(async () => hint);
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, discover);
+    await connection.connect("synthetic-once");
+    expect(connection.state.state).toBe("connected");
+    expect(connection.state.message).toContain("Foundation: degraded");
+    const firstClient = requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id;
+    expect(firstClient).toBeTruthy();
+    hint = {
+      ...metadata,
+      discovery: { ...discovery, instance_id: "core_restarted", port: 31235 },
+    };
+    const restarted = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: "core_restarted", status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-session-restarted",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: "core_restarted",
+        vault_id: discovery.vault_id,
+      },
+      "/v1/handshake": { ...handshake, core_instance_id: "core_restarted" },
+    });
+    transport.mockImplementation(restarted.transport);
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
+    expect(restarted.requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id).toBe(
+      firstClient,
+    );
+    expect(restarted.requests.some((request) => request.route === "/v1/pair/request")).toBe(false);
+    expect(await store.read("connection:/synthetic/one")).toEqual(hint);
+    expect(discover).toHaveBeenCalledTimes(2);
+    connection.stop();
+  });
+
+  it("reconnects with the same Plugin identity after Core recovery without pairing again", async () => {
+    let hint = metadata;
+    const { transport, requests } = fixture();
+    const connection = new PluginConnection(
+      "/synthetic/one",
+      "0.0.1",
+      new LocalStore(crypto.randomUUID()),
+      transport,
+      async () => hint,
+    );
+    await connection.connect("synthetic-once");
+    const clientId = requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id;
+    transport.mockRejectedValueOnce(new Error("synthetic Core restart"));
+    await connection.connect();
+    expect(connection.state.state).toBe("stopped");
+
+    hint = { ...metadata, discovery: { ...discovery, instance_id: "core_recovered", port: 31235 } };
+    const recovered = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: "core_recovered", status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-recovery-session",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: "core_recovered",
+        vault_id: discovery.vault_id,
+      },
+      "/v1/handshake": { ...handshake, core_instance_id: "core_recovered" },
+    });
+    transport.mockImplementation(recovered.transport);
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(recovered.requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id).toBe(
+      clientId,
+    );
+    expect(recovered.requests.filter((request) => request.route === "/v1/auth/session")).toHaveLength(1);
+    expect(recovered.requests.some((request) => request.route === "/v1/pair/request")).toBe(false);
+    connection.stop();
+  });
+
+  it("polls live Core health without rescanning Vault through handshake and system health", async () => {
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(crypto.randomUUID()), transport);
+    await connection.configure(metadata, "");
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(requests.filter((entry) => entry.route === "/v1/handshake")).toHaveLength(1);
+    expect(requests.filter((entry) => entry.route === "/v1/system-health")).toHaveLength(1);
+    expect(requests.filter((entry) => entry.route === "/v1/health").length).toBeGreaterThan(1);
+    connection.stop();
+  });
+
+  it("leaves connected state when the lightweight Core poll fails and reauthenticates on recovery", async () => {
+    const { transport, requests } = fixture({
+      "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", new LocalStore(crypto.randomUUID()), transport);
+    await connection.configure(metadata, "");
+    transport.mockRejectedValueOnce(new Error("synthetic Core stop"));
+    await connection.connect();
+    expect(connection.state.state).toBe("stopped");
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(requests.filter((entry) => entry.route === "/v1/handshake")).toHaveLength(2);
+    connection.stop();
+  });
+
+  it("rejects another Vault path even with proof and changed identity without proof", async () => {
+    for (const [wrong, proof] of [
+      [{ ...metadata, vaultPath: "/synthetic/two" }, "synthetic-once"],
+      [{ ...metadata, vaultFingerprint: "another-fingerprint" }, ""],
+      [{ ...metadata, discovery: { ...discovery, vault_id: "vault_another" } }, ""],
+    ] as const) {
+      const store = new LocalStore(crypto.randomUUID());
+      await store.write("connection:/synthetic/one", metadata);
+      const { transport } = fixture();
+      const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => wrong);
+      await connection.connect(proof);
+      expect(connection.state.state).toBe("wrong-vault");
+      expect(transport).not.toHaveBeenCalled();
+      expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+      connection.stop();
+    }
+  });
+
+  it("reports malformed setup metadata as unavailable without connecting using stale metadata", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    await store.write("connection:/synthetic/one", metadata);
+    const { transport } = fixture();
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => ({
+      ...metadata,
+      bootstrap_proof: "synthetic-secret",
+    }));
+    await connection.connect();
+    expect(connection.state.state).toBe("unavailable");
+    expect(transport).not.toHaveBeenCalled();
+    expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+    connection.stop();
+  });
+
+  it("does not pin a first setup hint whose authenticated handshake belongs to another Vault", async () => {
+    const store = new LocalStore(crypto.randomUUID());
+    const { transport } = fixture({ "/v1/handshake": { ...handshake, vault_fingerprint: "another-vault" } });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => metadata);
+    await connection.connect();
+    expect(connection.state.state).toBe("wrong-vault");
+    expect(await store.read("connection:/synthetic/one")).toBeUndefined();
+    connection.stop();
+  });
+
+  it("suppresses a late setup hint after unload", async () => {
+    let resolveHint: ((hint: unknown) => void) | undefined;
+    const discover = vi.fn(
+      () =>
+        new Promise<unknown>((resolve) => {
+          resolveHint = resolve;
+        }),
+    );
+    const store = new LocalStore(crypto.randomUUID());
+    const write = vi.spyOn(store, "write");
+    const { transport } = fixture();
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, discover);
+    const pending = connection.connect();
+    await vi.waitFor(() => expect(discover).toHaveBeenCalled());
+    connection.stop();
+    resolveHint?.(metadata);
+    await pending;
+    expect(write).not.toHaveBeenCalled();
+    expect(transport).not.toHaveBeenCalled();
+  });
+
   it("calls native-style fetch without binding it to PluginConnection", async () => {
     const { transport: reply } = fixture();
     const transport = vi.fn<typeof fetch>(function (this: unknown, input, init) {
@@ -188,6 +359,43 @@ describe("Plugin Core connection", () => {
     expect(reloaded.state.state).toBe("connected");
     expect(String(transport.mock.calls.at(-1)?.[0])).toContain(":31235/");
     reloaded.stop();
+  });
+
+  it("accepts a reinstalled Core identity only after a new one-time pairing proof", async () => {
+    const replacement = {
+      ...metadata,
+      discovery: { ...discovery, instance_id: "core_reinstalled", vault_id: "vault_reinstalled", port: 31235 },
+      vaultFingerprint: "synthetic-reinstalled-fingerprint",
+    };
+    const store = new LocalStore(crypto.randomUUID());
+    await store.write("connection:/synthetic/one", metadata);
+    const { transport, requests } = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: replacement.discovery.instance_id, status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-new-session",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: replacement.discovery.instance_id,
+        vault_id: replacement.discovery.vault_id,
+      },
+      "/v1/handshake": {
+        ...handshake,
+        core_instance_id: replacement.discovery.instance_id,
+        vault_id: replacement.discovery.vault_id,
+        vault_fingerprint: replacement.vaultFingerprint,
+      },
+    });
+    const connection = new PluginConnection("/synthetic/one", "0.0.1", store, transport, async () => replacement);
+    await connection.connect();
+    expect(connection.state.state).toBe("wrong-vault");
+    expect(requests).toHaveLength(0);
+    expect(await store.read("connection:/synthetic/one")).toEqual(metadata);
+    await connection.connect("synthetic-new-proof");
+    expect(connection.state.state).toBe("connected");
+    expect(requests.find((request) => request.route === "/v1/pair/request")?.body.bootstrap_proof).toBe(
+      "synthetic-new-proof",
+    );
+    expect(await store.read("connection:/synthetic/one")).toEqual(replacement);
+    connection.stop();
   });
 
   it("aborts in-flight requests and suppresses late UI updates after unload", async () => {

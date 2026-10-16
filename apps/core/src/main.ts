@@ -9,6 +9,8 @@ async function main(): Promise<void> {
     stateDirectory,
     vaultId: profile.vault_id,
     vaultFingerprint: profile.vault_fingerprint,
+    ...(profile.vault_path ? { vaultPath: profile.vault_path } : {}),
+    ...(profile.property_mapping ? { propertyMapping: profile.property_mapping } : {}),
   });
   const shutdown = async () => {
     await core.close();

@@ -14,11 +14,17 @@ export default class IdeomyPlugin extends Plugin {
     this.addRibbonIcon("brain", "Open Ideomy", () => void this.openView());
     this.app.workspace.onLayoutReady(() => {
       if (this.disposed || !(this.app.vault.adapter instanceof FileSystemAdapter)) return;
-      // shortcut: desktop path scopes the manual dev handoff, replace with setup-owned identity wiring in M0.5.
       this.connection = new PluginConnection(
         this.app.vault.adapter.getBasePath(),
         this.manifest.version,
         new LocalStore(),
+        fetch,
+        async () => {
+          // Setup owns this non-secret hint; Core's authoritative discovery stays machine-local.
+          const path = `${this.app.vault.configDir}/plugins/ideomy/connection.json`;
+          if (!(await this.app.vault.adapter.exists(path))) return undefined;
+          return JSON.parse(await this.app.vault.adapter.read(path));
+        },
       );
       this.registerInterval(window.setInterval(() => void this.connection?.connect(), 30_000));
       void this.connection.connect();
@@ -93,14 +99,14 @@ class IdeomyView extends ItemView {
     this.contentEl.createEl("p", { attr: { "data-ideomy-status": "", role: "status" } });
     this.contentEl.createEl("p", { attr: { "data-ideomy-identity": "" } });
     this.contentEl.createEl("p", {
-      text: "Plugin connection acceptance does not imply Bootstrap Foundation Healthy. Automatic setup and discovery refresh are pending.",
+      text: "Setup supplies Core connection metadata. Enter its one-time pairing proof below to authorize this device.",
     });
     if (this.plugin.connection) {
       const form = this.contentEl.createEl("form");
       form.style.display = "grid";
       form.style.gap = "var(--size-4-2)";
       const label = form.createEl("label", {
-        text: "Development connection JSON (discovery, vaultFingerprint and vaultPath)",
+        text: "Optional development connection JSON (leave empty to use setup)",
       });
       label.style.display = "grid";
       const metadata = label.createEl("textarea", { attr: { rows: "5", spellcheck: "false", autocomplete: "off" } });
@@ -120,14 +126,18 @@ class IdeomyView extends ItemView {
         button.disabled = true;
         let parsed: unknown;
         try {
-          parsed = JSON.parse(metadata.value);
+          if (metadata.value.trim()) parsed = JSON.parse(metadata.value);
         } catch {
           feedback.textContent = "Invalid JSON.";
           button.disabled = false;
           return;
         }
-        void this.plugin.connection
-          ?.configure(parsed, once)
+        const connection = this.plugin.connection;
+        if (!connection) {
+          button.disabled = false;
+          return;
+        }
+        void (metadata.value.trim() ? connection.configure(parsed, once) : connection.connect(once))
           .catch(() => {
             if (this.plugin.connection?.state.state !== "wrong-vault")
               feedback.textContent = "Invalid metadata or unavailable local storage.";

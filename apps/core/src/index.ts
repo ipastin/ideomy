@@ -2,18 +2,22 @@ import { createHash, createPublicKey, randomBytes, timingSafeEqual, verify } fro
 import {
   closeSync,
   existsSync,
+  type FSWatcher,
   lstatSync,
   mkdirSync,
   openSync,
   readFileSync,
   renameSync,
   unlinkSync,
+  watch,
   writeFileSync,
 } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import path from "node:path";
+import { Worker } from "node:worker_threads";
 import { type CoreDiscovery, protocolSchemas } from "@ideomy/contracts";
 import { readCliAdminSecret, readMachineLocalFile } from "@ideomy/platform";
+import { inspectVault } from "./vault-health.ts";
 
 type ClientType = "plugin" | "cli";
 type PairedClient = {
@@ -21,13 +25,22 @@ type PairedClient = {
   vault_fingerprint: string;
   public_key: { kty: "EC"; crv: "P-256"; x: string; y: string };
 };
-type Session = { clientType: ClientType; clientId: string; vaultId: string; fingerprint: string; expiresAt: number };
+type Session = {
+  clientType: ClientType;
+  clientId: string;
+  vaultId: string;
+  fingerprint: string;
+  expiresAt: number;
+  compatibleHandshake?: boolean;
+};
 type Challenge = { nonce: string; clientId: string; expiresAt: number };
 
 export type CoreOptions = {
   stateDirectory: string;
   vaultId: string;
   vaultFingerprint: string;
+  vaultPath?: string;
+  propertyMapping?: Record<string, string>;
   allowedOrigins?: string[];
 };
 
@@ -148,9 +161,119 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
   writePrivateFile(
     options.stateDirectory,
     "core-profile.json",
-    JSON.stringify({ vault_id: options.vaultId, vault_fingerprint: options.vaultFingerprint }),
+    JSON.stringify({
+      vault_id: options.vaultId,
+      vault_fingerprint: options.vaultFingerprint,
+      ...(options.vaultPath ? { vault_path: options.vaultPath } : {}),
+      ...(options.propertyMapping ? { property_mapping: options.propertyMapping } : {}),
+    }),
   );
   const clients = readPairedClients(options.stateDirectory);
+  let onVaultChange = () => {};
+  let vaultWatcher: FSWatcher | undefined;
+  let watchFailed = false;
+  if (options.vaultPath) {
+    try {
+      vaultWatcher = watch(options.vaultPath, { recursive: true }, (event, filename) => {
+        const relative = filename?.toString();
+        if (relative?.startsWith(".obsidian/plugins/ideomy/") && !relative.endsWith(".md")) return;
+        if (!relative || relative.endsWith(".md") || event === "rename") onVaultChange();
+      });
+    } catch {
+      watchFailed = true;
+    }
+  }
+  const initialVault = inspectVault(options);
+  if (initialVault.manifest !== null && initialVault.index !== "current") {
+    try {
+      writePrivateFile(options.stateDirectory, "bootstrap-index.json", initialVault.manifest);
+    } catch (error) {
+      vaultWatcher?.close();
+      throw error;
+    }
+  }
+  let vaultHealth = {
+    ...initialVault,
+    index: initialVault.manifest !== null ? "current" : initialVault.index,
+  };
+  let verifiedAt: string | null = new Date().toISOString();
+  let indexWatcher: FSWatcher | undefined;
+  let inspectionWorker: Worker | undefined;
+  let inspectionTimer: ReturnType<typeof setTimeout> | undefined;
+  let generation = 0;
+  let closed = false;
+  const unavailable = () => {
+    verifiedAt = null;
+    vaultHealth = { ...vaultHealth, schema: "unavailable", index: "unavailable", diagnostics: ["VAULT-110"] };
+  };
+  const inspectInWorker = () => {
+    if (closed || inspectionWorker) return;
+    const started = generation;
+    let worker: Worker;
+    try {
+      const name = import.meta.url.endsWith(".ts") ? "vault-inspector-worker.ts" : "vault-inspector-worker.js";
+      worker = new Worker(new URL(name, import.meta.url), { workerData: options });
+    } catch {
+      unavailable();
+      return;
+    }
+    inspectionWorker = worker;
+    worker.once("message", (result: ReturnType<typeof inspectVault>) => {
+      if (closed || inspectionWorker !== worker) return;
+      inspectionWorker = undefined;
+      if (watchFailed) unavailable();
+      else if (generation === started) {
+        vaultHealth = result;
+        verifiedAt = new Date().toISOString();
+      } else inspectInWorker();
+    });
+    worker.once("error", () => {
+      if (inspectionWorker !== worker) return;
+      inspectionWorker = undefined;
+      unavailable();
+    });
+    worker.once("exit", () => {
+      if (inspectionWorker !== worker) return;
+      inspectionWorker = undefined;
+      unavailable();
+    });
+  };
+  const changed = () => {
+    if (closed || watchFailed) return;
+    generation++;
+    verifiedAt = null;
+    vaultHealth = { ...vaultHealth, schema: "checking", index: "checking", manifest: null };
+    if (inspectionTimer) clearTimeout(inspectionTimer);
+    inspectionTimer = setTimeout(() => {
+      inspectionTimer = undefined;
+      inspectInWorker();
+    }, 100);
+  };
+  onVaultChange = changed;
+  const watchError = () => {
+    watchFailed = true;
+    vaultWatcher?.close();
+    indexWatcher?.close();
+    unavailable();
+  };
+  if (vaultWatcher) vaultWatcher.on("error", watchError);
+  try {
+    indexWatcher = watch(options.stateDirectory, (_event, filename) => {
+      if (filename?.toString() === "bootstrap-index.json") changed();
+    });
+    indexWatcher.on("error", watchError);
+  } catch {
+    watchFailed = true;
+    vaultWatcher?.close();
+  }
+  if (watchFailed) unavailable();
+  const closeInspection = async () => {
+    closed = true;
+    vaultWatcher?.close();
+    indexWatcher?.close();
+    if (inspectionTimer) clearTimeout(inspectionTimer);
+    if (inspectionWorker) await inspectionWorker.terminate();
+  };
   const instanceId = random("core");
   const sessions = new Map<string, Session>();
   const challenges = new Map<string, Challenge>();
@@ -400,6 +523,8 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
           return error(409, "VAULT-004", "Vault identity does not match the active Core profile.");
         if (data.protocol_min > data.protocol_max) return error(400, "CORE-400", "Invalid protocol range.");
         const compatibility = data.protocol_min > 1 ? "core_update_required" : "compatible";
+        session.compatibleHandshake = compatibility === "compatible";
+        const vault = vaultHealth;
         send(
           response,
           200,
@@ -411,23 +536,48 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
             vault_fingerprint: options.vaultFingerprint,
             capabilities: compatibility === "compatible" ? ["system-health"] : [],
             compatibility,
-            schema_status: "unavailable",
-            index_status: "unavailable",
+            schema_status: vault.schema,
+            index_status: vault.index,
             session_expires_at: new Date(session.expiresAt).toISOString(),
           }),
         );
         return;
       }
       if (request.method === "GET" && route === "/v1/system-health") {
+        const vault = vaultHealth;
         send(
           response,
           200,
           protocolSchemas.status.parse({
-            status: "degraded",
-            core: { status: "ready", instance_id: instanceId },
-            vault: { status: "bound", vault_id: options.vaultId },
-            schema: { status: "unavailable" },
-            index: { status: "unavailable" },
+            status:
+              vault.schema === "valid" && vault.index === "current"
+                ? vault.diagnostics.length
+                  ? "attention"
+                  : "healthy"
+                : "degraded",
+            core: {
+              status: "ready",
+              instance_id: instanceId,
+              plugin_paired: [...clients.values()].some((client) =>
+                vaultMatches(client.vault_id, client.vault_fingerprint),
+              ),
+              plugin_authenticated: [...sessions.values()].some(
+                (active) =>
+                  active.clientType === "plugin" &&
+                  active.expiresAt > Date.now() &&
+                  vaultMatches(active.vaultId, active.fingerprint),
+              ),
+              plugin_handshake: [...sessions.values()].some(
+                (active) =>
+                  active.clientType === "plugin" &&
+                  active.expiresAt > Date.now() &&
+                  active.compatibleHandshake === true &&
+                  vaultMatches(active.vaultId, active.fingerprint),
+              ),
+            },
+            vault: { status: vault.vault, vault_id: options.vaultId },
+            schema: { status: vault.schema, diagnostics: vault.diagnostics, verified_at: verifiedAt },
+            index: { status: vault.index, verified_at: verifiedAt },
           }),
         );
         return;
@@ -441,24 +591,26 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
     }
   });
 
-  await new Promise<void>((resolve, reject) => {
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", resolve);
-  });
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Core loopback address is unavailable.");
-  const discovery = protocolSchemas.discovery.parse({
-    instance_id: instanceId,
-    protocol: 1,
-    port: address.port,
-    pid: process.pid,
-    started_at: new Date().toISOString(),
-    vault_id: options.vaultId,
-  });
+  let discovery: CoreDiscovery;
   try {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    if (!address || typeof address === "string") throw new Error("Core loopback address is unavailable.");
+    discovery = protocolSchemas.discovery.parse({
+      instance_id: instanceId,
+      protocol: 1,
+      port: address.port,
+      pid: process.pid,
+      started_at: new Date().toISOString(),
+      vault_id: options.vaultId,
+    });
     writePrivateFile(options.stateDirectory, "core-discovery.json", JSON.stringify(discovery));
   } catch (failure) {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closeInspection();
+    if (server.listening) await new Promise<void>((resolve) => server.close(() => resolve()));
     throw failure;
   }
   return {
@@ -467,6 +619,7 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
       sessions.delete(tokenHash(token));
     },
     async close() {
+      await closeInspection();
       sessions.clear();
       challenges.clear();
       pairingRequests.clear();

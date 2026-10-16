@@ -137,6 +137,11 @@ describe("M0.3 Core protocol", () => {
       const plugin = new CoreClient(() => readCoreDiscovery(directory));
       const cli = new CoreClient(() => readCoreDiscovery(directory));
       await cli.connectCli(identity("cli_pairing"), readCliAdminSecret(directory));
+      expect((await cli.systemHealth()).core).toMatchObject({
+        plugin_paired: false,
+        plugin_authenticated: false,
+        plugin_handshake: false,
+      });
       const window = await cli.openPairingWindow("pairing_test");
       expect(await cli.openPairingWindow("pairing_test")).toEqual(window);
       const invalidKey = await request(core, "/v1/pair/request", {
@@ -152,6 +157,11 @@ describe("M0.3 Core protocol", () => {
       });
       expect(invalidKey.status).toBe(400);
       await plugin.pairPlugin(identity("plugin_test"), keyPair.publicKey, window.bootstrap_proof);
+      expect((await cli.systemHealth()).core).toMatchObject({
+        plugin_paired: true,
+        plugin_authenticated: false,
+        plugin_handshake: false,
+      });
       await expect(
         plugin.pairPlugin(identity("plugin_test"), keyPair.publicKey, window.bootstrap_proof),
       ).rejects.toMatchObject({
@@ -189,6 +199,11 @@ describe("M0.3 Core protocol", () => {
       });
       expect(first.status).toBe(200);
       const pluginSession = protocolSchemas["auth-session-response"].parse(await first.json());
+      expect((await cli.systemHealth()).core).toMatchObject({
+        plugin_paired: true,
+        plugin_authenticated: true,
+        plugin_handshake: false,
+      });
       const forbiddenWindow = await request(core, "/v1/pair/window", {
         method: "POST",
         headers: {
@@ -209,11 +224,19 @@ describe("M0.3 Core protocol", () => {
         "compatible",
       );
       expect((await plugin.systemHealth()).status).toBe("degraded");
+      expect((await cli.systemHealth()).core).toMatchObject({ plugin_handshake: true });
 
       const firstInstance = core.discovery.instance_id;
       await core.close();
       core = await startCore({ stateDirectory: directory, vaultId, vaultFingerprint: fingerprint });
       expect(core.discovery.instance_id).not.toBe(firstInstance);
+      const restartObserver = new CoreClient(() => readCoreDiscovery(directory));
+      await restartObserver.connectCli(identity("cli_restart_observer"), readCliAdminSecret(directory));
+      expect((await restartObserver.systemHealth()).core).toMatchObject({
+        plugin_paired: true,
+        plugin_authenticated: false,
+        plugin_handshake: false,
+      });
       await expect(plugin.systemHealth()).rejects.toBeInstanceOf(CoreClientError);
       expect((await plugin.connectPlugin(identity("plugin_test"), keyPair.privateKey)).core_instance_id).toBe(
         core.discovery.instance_id,

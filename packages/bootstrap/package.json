@@ -8,6 +8,8 @@
   },
   "dependencies": {
     "@ideomy/contracts": "workspace:*",
-    "@ideomy/platform": "workspace:*"
+    "@ideomy/core-client": "workspace:*",
+    "@ideomy/platform": "workspace:*",
+    "@ideomy/vault-io": "workspace:*"
   }
 }

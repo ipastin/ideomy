@@ -1,10 +1,16 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline/promises";
 import { pathToFileURL } from "node:url";
-import { doctorShell, type ShellResult, setupShell, statusShell } from "@ideomy/bootstrap";
-import { cliOutputSchema, protocolSchemas } from "@ideomy/contracts";
-import { CoreClient, CoreClientError } from "@ideomy/core-client";
-import { readCliAdminSecret, readCoreDiscovery, readCoreProfile } from "@ideomy/platform";
+import {
+  doctorFoundation,
+  repairFoundation,
+  type ShellResult,
+  setupFoundation,
+  statusFoundation,
+  uninstallFoundation,
+  updateFoundation,
+} from "@ideomy/bootstrap";
+import { cliOutputSchema } from "@ideomy/contracts";
 
 export const CLI_VERSION = "0.0.0";
 const help = `Ideomy ${CLI_VERSION}
@@ -12,9 +18,12 @@ const help = `Ideomy ${CLI_VERSION}
 Usage: ideomy <command> [options]
 
 Commands:
-  setup       Begin guided setup
+  setup       Create or attach a Vault and install the local development Foundation
   status      Show a read-only component summary
   doctor      Run read-only diagnostic checks
+  repair      Preview and apply narrow diagnosed repairs
+  update      Check development artifact compatibility
+  uninstall   Remove Ideomy components while preserving the Vault
 
 Options:
   --help, -h            Show help
@@ -24,6 +33,9 @@ Options:
   --new | --existing    Select setup mode
   --non-interactive     Never prompt
   --yes, -y             Accept ordinary safe confirmations
+  --skip-open           Do not open the Vault after setup
+  --skip-index          Leave index incomplete for support/testing
+  --check               Inspect available update only
   --quiet, -q           Suppress normal human output
   --verbose, -v         Show diagnostic detail
   --no-color            Disable color output
@@ -36,6 +48,11 @@ type Parsed = {
   mode?: "new" | "existing";
   vault?: string;
   nonInteractive: boolean;
+  yes: boolean;
+  skipOpen: boolean;
+  skipIndex: boolean;
+  check: boolean;
+  channel?: "stable" | "beta" | "dev";
   error?: string;
 };
 
@@ -56,6 +73,10 @@ export function parseArgs(args: string[]): Parsed {
     json: args.includes("--json"),
     quiet: args.includes("--quiet") || args.includes("-q"),
     nonInteractive: args.includes("--non-interactive"),
+    yes: args.includes("--yes") || args.includes("-y"),
+    skipOpen: args.includes("--skip-open"),
+    skipIndex: args.includes("--skip-index"),
+    check: args.includes("--check"),
   };
   const valueFlags = new Set(["--vault", "--channel", "--config"]);
   const booleanFlags = new Set([
@@ -68,6 +89,9 @@ export function parseArgs(args: string[]): Parsed {
     "--non-interactive",
     "--yes",
     "-y",
+    "--skip-open",
+    "--skip-index",
+    "--check",
   ]);
   let commandSeen = false;
   for (let i = 0; i < args.length; i++) {
@@ -96,12 +120,9 @@ export function parseArgs(args: string[]): Parsed {
       if (arg === "--vault") parsed.vault = value;
       if (arg === "--channel" && !["stable", "beta", "dev"].includes(value))
         parsed.error = "--channel must be stable, beta or dev";
-      else if (arg !== "--vault") parsed.error = `${arg} is not available in the M0.1 shell`;
+      else if (arg === "--channel") parsed.channel = value as "stable" | "beta" | "dev";
+      else if (arg !== "--vault") parsed.error = `${arg} is not available in this build`;
       continue;
-    }
-    if (arg === "--skip-open" || arg === "--skip-index") {
-      parsed.error = `${arg} is not available in the M0.1 shell`;
-      break;
     }
     if (booleanFlags.has(arg)) continue;
     if (arg.startsWith("-")) {
@@ -115,12 +136,20 @@ export function parseArgs(args: string[]): Parsed {
     parsed.command = arg;
     commandSeen = true;
   }
-  if (!parsed.error && !["help", "version", "setup", "status", "doctor"].includes(parsed.command))
+  if (
+    !parsed.error &&
+    !["help", "version", "setup", "status", "doctor", "repair", "update", "uninstall"].includes(parsed.command)
+  )
     parsed.error = `Unknown command: ${parsed.command}`;
   if (!parsed.error && parsed.command !== "setup" && parsed.mode)
     parsed.error = "--new and --existing are setup options";
-  if (!parsed.error && parsed.command !== "setup" && parsed.vault)
-    parsed.error = "--vault scoping is not available for status/doctor in the M0.1 shell";
+  if (!parsed.error && parsed.command !== "setup" && (parsed.skipOpen || parsed.skipIndex))
+    parsed.error = "--skip-open and --skip-index are setup options";
+  if (!parsed.error && parsed.command !== "update" && parsed.check) parsed.error = "--check is an update option";
+  if (!parsed.error && !["setup", "update"].includes(parsed.command) && parsed.channel)
+    parsed.error = "--channel is a setup/update option";
+  if (!parsed.error && !["setup", "doctor"].includes(parsed.command) && parsed.vault)
+    parsed.error = "--vault is not available for this command";
   return parsed;
 }
 
@@ -196,10 +225,29 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
       );
       return;
     }
-    if (interactive && (!options.mode || !options.vault)) {
+    if (interactive) {
       const prompt = createInterface({ input: process.stdin, output: process.stdout });
       try {
-        Object.assign(options, await promptForSetup(options, (message) => prompt.question(message)));
+        if (!options.mode || !options.vault)
+          Object.assign(options, await promptForSetup(options, (message) => prompt.question(message)));
+        if (!options.yes) {
+          const preview = await setupFoundation({
+            ...(options.mode ? { mode: options.mode } : {}),
+            ...(options.vault ? { vault: options.vault } : {}),
+            nonInteractive: false,
+            channel: options.channel ?? "dev",
+          });
+          if (preview.data.plan) process.stdout.write(`${JSON.stringify(preview.data.plan, null, 2)}\n`);
+          else {
+            print("setup", preview, false, options.quiet);
+            return;
+          }
+          options.yes = /^(?:y|yes)$/i.test((await prompt.question("Apply this plan? [y/N] ")).trim());
+          if (!options.yes) {
+            print("setup", usageFailure("Setup was not confirmed."), false, options.quiet);
+            return;
+          }
+        }
       } catch (error) {
         const failure = setupPromptFailure(error);
         if (failure === 130) {
@@ -214,10 +262,15 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     }
     print(
       "setup",
-      setupShell({
+      await setupFoundation({
         ...(options.mode ? { mode: options.mode } : {}),
         ...(options.vault ? { vault: options.vault } : {}),
+        ...(options.channel ? { channel: options.channel } : {}),
         nonInteractive: !interactive,
+        yes: options.yes,
+        skipOpen: options.skipOpen,
+        skipIndex: options.skipIndex,
+        json: options.json,
       }),
       options.json,
       options.quiet,
@@ -225,73 +278,47 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     return;
   }
   if (options.command === "status") {
-    let discoveryFound = false;
-    try {
-      const discovery = protocolSchemas.discovery.parse(readCoreDiscovery());
-      discoveryFound = true;
-      const profile = readCoreProfile();
-      if (profile.vault_id !== discovery.vault_id)
-        throw new CoreClientError("VAULT-004", "Core profile and discovery identify different Vaults.");
-      const client = new CoreClient(readCoreDiscovery);
-      const handshake = await client.connectCli(
-        {
-          vaultId: discovery.vault_id,
-          vaultFingerprint: profile.vault_fingerprint,
-          clientInstanceId: `cli_${process.pid}`,
-          clientVersion: CLI_VERSION,
-        },
-        readCliAdminSecret(),
-      );
-      const health = await client.systemHealth();
-      const baseline = statusShell();
-      print(
-        "status",
-        {
-          ok: true,
-          status: health.status === "healthy" ? "healthy" : "degraded",
-          exitCode: 0,
-          data: {
-            ...baseline.data,
-            core: { status: "running", version: handshake.core_version },
-            vault: health.vault,
-            schema: health.schema,
-            index: health.index,
-          },
-          diagnostics: [],
-        },
-        options.json,
-        options.quiet,
-      );
-    } catch (error) {
-      if (!discoveryFound && (error as NodeJS.ErrnoException).code === "ENOENT") {
-        print("status", statusShell(), options.json, options.quiet);
-        return;
-      }
-      const code = error instanceof CoreClientError ? error.code : "CORE-503";
-      const baseline = statusShell();
-      print(
-        "status",
-        {
-          ...baseline,
-          ok: false,
-          exitCode: code.startsWith("VAULT-") ? 20 : 40,
-          diagnostics: [
-            {
-              code,
-              severity: "error",
-              message: "Ideomy Core authentication or handshake failed.",
-              remediation: "Check Core state and Vault identity with ideomy doctor.",
-              repairable: false,
-            },
-          ],
-        },
-        options.json,
-        options.quiet,
-      );
-    }
+    print("status", await statusFoundation(), options.json, options.quiet);
     return;
   }
-  print("doctor", doctorShell(), options.json, options.quiet);
+  if (options.command === "doctor") {
+    print("doctor", await doctorFoundation(options.vault ? { vault: options.vault } : {}), options.json, options.quiet);
+    return;
+  }
+  if (options.command === "repair") {
+    print(
+      "repair",
+      await repairFoundation({
+        yes: options.yes,
+        onPlan: (plan) => process.stderr.write(`Repair plan: ${JSON.stringify(plan)}\n`),
+      }),
+      options.json,
+      options.quiet,
+    );
+    return;
+  }
+  if (options.command === "uninstall") {
+    if (!options.yes) {
+      print(
+        "uninstall",
+        usageFailure("Review the uninstall plan and pass --yes; the Vault is preserved."),
+        options.json,
+        options.quiet,
+      );
+      return;
+    }
+    print("uninstall", await uninstallFoundation(), options.json, options.quiet);
+    return;
+  }
+  if (options.command === "update") {
+    print(
+      "update",
+      await updateFoundation({ channel: options.channel ?? "dev", check: options.check }),
+      options.json,
+      options.quiet,
+    );
+    return;
+  }
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) void run();

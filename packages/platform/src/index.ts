@@ -4,6 +4,14 @@ import { homedir, release } from "node:os";
 import { delimiter, join } from "node:path";
 
 export {
+  type CoreProcessRuntime,
+  type CoreProcessState,
+  CoreStartupPendingError,
+  MacosCoreLifecycle,
+} from "./core-lifecycle.ts";
+export type { CoreProfile } from "./core-state.ts";
+
+export {
   coreStateDirectory,
   readCliAdminSecret,
   readCoreDiscovery,

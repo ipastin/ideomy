@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@ideomy/contracts": "workspace:*",
-    "@ideomy/platform": "workspace:*"
+    "@ideomy/platform": "workspace:*",
+    "@ideomy/vault-io": "workspace:*"
   }
 }
