@@ -210,6 +210,14 @@ describe("M0.2 Vault I/O", () => {
     ]) {
       expect(extractMarkdownStructure(body).autoSections).toEqual([]);
     }
+    for (const body of [
+      "<pre>\n<!-- BEGIN AUTO:x -->\nUser content\n<!-- END AUTO:x -->\n</pre>",
+      "<!-- user context\n<!-- BEGIN AUTO:x -->\n<!-- more context\n<!-- END AUTO:x -->",
+    ]) {
+      const structure = extractMarkdownStructure(body);
+      expect(structure.autoSections).toEqual([]);
+      expect(structure.autoIssues).toEqual([]);
+    }
     expect(extractMarkdownStructure("<!-- BEGIN AUTO:x -->\nGenerated\n<!-- END AUTO:x -->").autoSections).toEqual([
       { name: "x", begin: 1, end: 3 },
     ]);

@@ -83,20 +83,19 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
           structure.fences.push({ line: end.line, boundary: "close" });
       }
     }
-    // AUTO ownership applies only to standalone top-level markers, never quoted or inline user text.
+    // A marker owns content only when the entire top-level HTML node is one comment line.
     if (node.type === "html" && parentType === "root" && node.position) {
-      for (const match of node.value.matchAll(/<!-- (BEGIN|END) AUTO:([a-zA-Z0-9_-]+) -->/g)) {
+      const match = node.value.trim().match(/^<!-- (BEGIN|END) AUTO:([a-zA-Z0-9_-]+) -->$/);
+      const line = node.position.start.line;
+      if (match && node.position.start.line === node.position.end.line && lines[line - 1]?.trim() === match[0]) {
         const name = match[2];
-        if (!name) continue;
-        const line = node.position.start.line + (node.value.slice(0, match.index).match(/\n/g) ?? []).length;
-        if (lines[line - 1]?.trim() !== match[0]) continue;
-        if (match[1] === "BEGIN") {
+        if (name && match[1] === "BEGIN") {
           if (seenAuto.has(name) || openAuto.has(name)) structure.autoIssues.push(`duplicate AUTO marker: ${name}`);
           else {
             openAuto.set(name, line);
             openOrder.push(name);
           }
-        } else {
+        } else if (name) {
           const begin = openAuto.get(name);
           if (begin === undefined) structure.autoIssues.push(`unmatched AUTO end: ${name}`);
           else if (openOrder.at(-1) !== name) structure.autoIssues.push(`mismatched AUTO end: ${name}`);
