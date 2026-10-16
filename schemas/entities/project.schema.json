@@ -12,6 +12,9 @@
         "type": {
           "const": "project"
         },
+        "id": {
+          "pattern": "^prj_"
+        },
         "status": {
           "enum": [
             "idea",

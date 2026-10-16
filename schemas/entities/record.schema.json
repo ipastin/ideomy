@@ -12,6 +12,9 @@
         "type": {
           "const": "record"
         },
+        "id": {
+          "pattern": "^rec_"
+        },
         "status": {
           "enum": [
             "recorded",

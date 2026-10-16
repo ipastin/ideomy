@@ -12,6 +12,9 @@
         "type": {
           "const": "journal"
         },
+        "id": {
+          "pattern": "^jrn_"
+        },
         "status": {
           "enum": [
             "open",

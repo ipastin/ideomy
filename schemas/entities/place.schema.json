@@ -12,6 +12,9 @@
         "type": {
           "const": "place"
         },
+        "id": {
+          "pattern": "^plc_"
+        },
         "status": {
           "enum": [
             "active",

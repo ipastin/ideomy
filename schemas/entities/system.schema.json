@@ -12,6 +12,9 @@
         "type": {
           "const": "system"
         },
+        "id": {
+          "pattern": "^sys_"
+        },
         "status": {
           "enum": [
             "draft",
