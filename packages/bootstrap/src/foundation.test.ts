@@ -171,6 +171,7 @@ describe("Bootstrap Foundation", () => {
       "packages/contracts",
       "packages/platform",
       "packages/schema",
+      "packages/index",
       "packages/vault-io",
     ]) {
       const directory = path.join(workspace, name);
