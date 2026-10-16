@@ -1,6 +1,10 @@
 import { z } from "zod";
 
-const dateTime = z.iso.datetime({ offset: true });
+const isoDateTime = z.iso.datetime({ offset: true });
+const dateTime = z
+  .string()
+  .refine((value) => isoDateTime.safeParse(value.replace("t", "T").replace(/z$/, "Z")).success)
+  .meta({ format: "date-time" });
 const object = z.record(z.string(), z.unknown());
 
 export const protocolSchemas = {
