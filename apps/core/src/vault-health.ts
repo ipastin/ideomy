@@ -1,5 +1,7 @@
-import { readFileSync, realpathSync } from "node:fs";
+import { randomUUID } from "node:crypto";
+import { readFileSync, realpathSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
+import { BetterSqliteStore, IndexError, indexFilename, indexRevision, inspectIndex } from "@ideomy/index";
 import { deriveVaultFingerprint, normalizeProperties, scanVault } from "@ideomy/vault-io";
 
 type VaultProfile = {
@@ -74,6 +76,18 @@ export function inspectVault(profile: VaultProfile) {
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code !== "ENOENT") index = "invalid";
     }
+    const structured = inspectIndex(
+      path.join(profile.stateDirectory, indexFilename),
+      indexRevision(scanned.notes, {
+        vaultRoot: root,
+        vaultId: profile.vaultId,
+        vaultFingerprint: profile.vaultFingerprint,
+        propertyMapping: mapping,
+      }),
+    );
+    if (structured === "invalid" || index === "invalid") index = "invalid";
+    else if (structured === "missing" || index === "missing") index = "missing";
+    else if (structured === "stale" || index === "stale") index = "stale";
     return {
       vault: "bound",
       schema: "valid",
@@ -88,6 +102,45 @@ export function inspectVault(profile: VaultProfile) {
       index: "unavailable",
       diagnostics: ["VAULT-110"],
       manifest: null,
+    };
+  }
+}
+
+export function synchronizeVaultIndex(profile: VaultProfile): ReturnType<typeof inspectVault> {
+  const before = inspectVault(profile);
+  if (before.manifest === null || before.index === "current" || !profile.vaultPath) return before;
+  try {
+    const store = new BetterSqliteStore(path.join(profile.stateDirectory, indexFilename));
+    try {
+      store.rebuild({
+        vaultRoot: profile.vaultPath,
+        vaultId: profile.vaultId,
+        vaultFingerprint: profile.vaultFingerprint,
+        propertyMapping: profile.propertyMapping ?? {},
+      });
+    } finally {
+      store.close();
+    }
+    const afterBuild = inspectVault(profile);
+    if (afterBuild.manifest === null) return afterBuild;
+    const target = path.join(profile.stateDirectory, "bootstrap-index.json");
+    const temporary = `${target}.${randomUUID()}.tmp`;
+    try {
+      writeFileSync(temporary, afterBuild.manifest, { mode: 0o600, flag: "wx" });
+      renameSync(temporary, target);
+    } finally {
+      try {
+        unlinkSync(temporary);
+      } catch {
+        /* rename removed it */
+      }
+    }
+    return inspectVault(profile);
+  } catch (error) {
+    return {
+      ...before,
+      index: "invalid",
+      diagnostics: [...before.diagnostics, error instanceof IndexError ? error.code : "INDEX-003"],
     };
   }
 }
