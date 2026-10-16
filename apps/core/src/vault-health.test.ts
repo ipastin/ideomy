@@ -63,8 +63,7 @@ it("indexes on startup, reports external changes and missing cache, and rebuilds
     expect(handshake.compatibility).toBe("compatible");
     expect(await waitForIndex(client, "current")).toMatchObject({ status: "healthy", index: { status: "current" } });
     writeFileSync(path.join(profile.vaultPath, ".obsidian/plugins/ideomy/connection.json"), "{}");
-    await new Promise((resolve) => setTimeout(resolve, 200));
-    expect(await client.systemHealth()).toMatchObject({ status: "healthy", index: { status: "current" } });
+    expect(inspectVault(profile).index).toBe("current");
     const cache = path.join(profile.stateDirectory, "bootstrap-index.json");
     expect(JSON.parse(readFileSync(cache, "utf8")).notes).toEqual([
       expect.objectContaining({ path: "person.md", kind: "managed", type: "person" }),

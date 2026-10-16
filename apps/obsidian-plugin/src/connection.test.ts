@@ -125,6 +125,44 @@ describe("Plugin Core connection", () => {
     connection.stop();
   });
 
+  it("reconnects with the same Plugin identity after Core recovery without pairing again", async () => {
+    let hint = metadata;
+    const { transport, requests } = fixture();
+    const connection = new PluginConnection(
+      "/synthetic/one",
+      "0.0.1",
+      new LocalStore(crypto.randomUUID()),
+      transport,
+      async () => hint,
+    );
+    await connection.connect("synthetic-once");
+    const clientId = requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id;
+    transport.mockRejectedValueOnce(new Error("synthetic Core restart"));
+    await connection.connect();
+    expect(connection.state.state).toBe("stopped");
+
+    hint = { ...metadata, discovery: { ...discovery, instance_id: "core_recovered", port: 31235 } };
+    const recovered = fixture({
+      "/v1/health": { ok: true, protocol: 1, core_instance_id: "core_recovered", status: "ready" },
+      "/v1/auth/session": {
+        session_token: "synthetic-recovery-session",
+        expires_at: "2026-10-15T12:15:00Z",
+        core_instance_id: "core_recovered",
+        vault_id: discovery.vault_id,
+      },
+      "/v1/handshake": { ...handshake, core_instance_id: "core_recovered" },
+    });
+    transport.mockImplementation(recovered.transport);
+    await connection.connect();
+    expect(connection.state.state).toBe("connected");
+    expect(recovered.requests.find((request) => request.route === "/v1/auth/challenge")?.body.client_instance_id).toBe(
+      clientId,
+    );
+    expect(recovered.requests.filter((request) => request.route === "/v1/auth/session")).toHaveLength(1);
+    expect(recovered.requests.some((request) => request.route === "/v1/pair/request")).toBe(false);
+    connection.stop();
+  });
+
   it("polls live Core health without rescanning Vault through handshake and system health", async () => {
     const { transport, requests } = fixture({
       "/v1/handshake": { ...handshake, session_expires_at: new Date(Date.now() + 900_000).toISOString() },

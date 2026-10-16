@@ -371,6 +371,33 @@ describe("Bootstrap Foundation", () => {
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
     expect(f.client.systemHealth.mock.calls.length).toBeGreaterThan(2);
   });
+  it("reuses the CLI session while setup retry waits for Plugin recovery", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    f.setIndex("stale");
+    f.client.connectCli.mockClear();
+    let authentications = 0;
+    f.client.connectCli.mockImplementation(async () => {
+      if (++authentications > 3) throw new Error("synthetic shared auth limit exhausted");
+      return {};
+    });
+    const health = f.client.systemHealth.getMockImplementation();
+    if (!health) throw new Error("Synthetic health implementation is missing.");
+    let recoveryChecks = 0;
+    f.client.systemHealth.mockImplementation(async () => {
+      if (f.lifecycle.restart.mock.calls.length && ++recoveryChecks === 4) f.setPaired(true);
+      return health();
+    });
+    f.lifecycle.restart.mockImplementationOnce(async () => {
+      f.setIndex("current");
+      f.setPaired(false);
+      return { state: "running" as const, pid: 123 };
+    });
+    const resumed = await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    expect(resumed.ok).toBe(true);
+    expect(recoveryChecks).toBeGreaterThanOrEqual(4);
+    expect(authentications).toBe(3);
+  });
   it("waits for a previously paired Plugin after a stopped Core resumes", async () => {
     const f = fixture();
     await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
@@ -404,6 +431,33 @@ describe("Bootstrap Foundation", () => {
     expect(repaired.ok).toBe(true);
     expect(repaired.data.actions_applied).toEqual(["rebuild_index"]);
     expect(f.client.systemHealth.mock.calls.length).toBeGreaterThan(2);
+  });
+  it("reuses the CLI session while repair waits for Plugin recovery", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    f.setIndex("stale");
+    f.client.connectCli.mockClear();
+    let authentications = 0;
+    f.client.connectCli.mockImplementation(async () => {
+      if (++authentications > 2) throw new Error("synthetic shared auth limit exhausted");
+      return {};
+    });
+    const health = f.client.systemHealth.getMockImplementation();
+    if (!health) throw new Error("Synthetic health implementation is missing.");
+    let recoveryChecks = 0;
+    f.client.systemHealth.mockImplementation(async () => {
+      if (f.lifecycle.restart.mock.calls.length && ++recoveryChecks === 4) f.setPaired(true);
+      return health();
+    });
+    f.lifecycle.restart.mockImplementationOnce(async () => {
+      f.setIndex("current");
+      f.setPaired(false);
+      return { state: "running" as const, pid: 123 };
+    });
+    const repaired = await repairFoundation({ yes: true }, f.dependencies);
+    expect(repaired.ok).toBe(true);
+    expect(recoveryChecks).toBeGreaterThanOrEqual(4);
+    expect(authentications).toBe(2);
   });
   it("refuses read-only Vaults before installing and refuses profile mismatches", async () => {
     const f = fixture();

@@ -674,7 +674,7 @@ export async function setupFoundation(
       throw new Failure("INDEX-001", "Setup index verification was skipped.", "Rerun setup without --skip-index.", 90);
     if ((connected.health.index as Record<string, unknown>).status !== "current") {
       await lifecycle.restart();
-      let refreshed = await connect(config);
+      const refreshed = await connect(config);
       if ((refreshed.health.index as Record<string, unknown>).status !== "current")
         throw new Failure(
           "INDEX-001",
@@ -693,7 +693,7 @@ export async function setupFoundation(
             90,
           );
         await new Promise((resolve) => setTimeout(resolve, 1_000));
-        refreshed = await connect(config);
+        refreshed.health = await refreshed.client.systemHealth();
       }
     }
     complete(stage);
@@ -752,7 +752,10 @@ export async function setupFoundation(
   }
 }
 
-export async function doctorFoundation(dependencies: FoundationDependencies = {}): Promise<ShellResult> {
+export async function doctorFoundation(
+  dependencies: FoundationDependencies = {},
+  connectedClient?: CoreClient,
+): Promise<ShellResult> {
   const config = settings(dependencies);
   try {
     const state = load(config.stateDirectory);
@@ -801,7 +804,7 @@ export async function doctorFoundation(dependencies: FoundationDependencies = {}
         "Enable the expected Plugin version in the selected Vault.",
         30,
       );
-    const { health } = await connect(config);
+    const { health } = connectedClient ? { health: await connectedClient.systemHealth() } : await connect(config);
     const authenticated =
       (health.core as Record<string, unknown>).plugin_authenticated === true &&
       (health.core as Record<string, unknown>).plugin_handshake === true &&
@@ -1118,12 +1121,13 @@ export async function repairFoundation(
     }
     if (actions.includes("start_core")) await lifecycle.start();
     if (actions.includes("rebuild_index")) await lifecycle.restart();
-    let after = await doctorFoundation(config);
+    const client = config.client ?? new CoreClient(() => readCoreDiscovery(config.stateDirectory));
+    let after = await doctorFoundation({ ...config, client });
     if (actions.includes("start_core") || actions.includes("rebuild_index")) {
       for (let attempt = 0; attempt < 36 && !after.ok; attempt++) {
         if (!["PLUG-004", "INDEX-001"].includes(after.diagnostics[0]?.code ?? "")) break;
         await new Promise((resolve) => setTimeout(resolve, 1_000));
-        after = await doctorFoundation(config);
+        after = await doctorFoundation(config, client);
       }
     }
     return { ...after, data: { ...after.data, plan, actions_applied: actions } };
