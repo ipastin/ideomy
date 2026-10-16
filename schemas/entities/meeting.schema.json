@@ -12,6 +12,9 @@
         "type": {
           "const": "meeting"
         },
+        "id": {
+          "pattern": "^mtg_"
+        },
         "status": {
           "enum": [
             "scheduled",
