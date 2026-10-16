@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   doctorFoundation,
   type FoundationDependencies,
+  repairFoundation,
   setupFoundation,
   statusFoundation,
   uninstallFoundation,
@@ -42,12 +43,19 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
   mkdirSync(templateDirectory);
   writeFileSync(path.join(templateDirectory, "starter.txt"), "synthetic starter");
   let registered = true;
+  let duplicateRegisteredName = false;
   let enabled = false;
   let restricted = false;
   let paired = true;
   let index = "current";
   const runObsidian = vi.fn((args: string[]) => {
-    if (args[0] === "vaults") return { ok: true, output: registered ? `${registeredName}\t${vault}\n` : "" };
+    if (args[0] === "vaults")
+      return {
+        ok: true,
+        output: registered
+          ? `${registeredName}\t${vault}\n${duplicateRegisteredName ? `${registeredName}\t${path.join(root, "another-vault")}\n` : ""}`
+          : "",
+      };
     if (args[0] !== `vault=${registeredName}`) return { ok: false, output: "Vault not found." };
     if (args[1] === "plugins:restrict") return { ok: true, output: restricted ? "on" : "off" };
     if (args[1] === "plugin:enable" && restricted) return { ok: false, output: "Restricted mode is on." };
@@ -113,6 +121,9 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
     setRegistered: (value: boolean) => {
       registered = value;
     },
+    setDuplicateRegisteredName: (value: boolean) => {
+      duplicateRegisteredName = value;
+    },
     setRestricted: (value: boolean) => {
       restricted = value;
     },
@@ -172,6 +183,14 @@ describe("Bootstrap Foundation", () => {
     writeFileSync(imported, "export const synthetic = false;\n");
     expect(readFileSync(entrypoint, "utf8")).toBe(entry);
     expect((await doctorFoundation(f.dependencies)).diagnostics[0]?.code).toBe("CORE-002");
+    const stateBeforeRetry = readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"));
+    const startsBeforeRetry = f.lifecycle.start.mock.calls.length;
+    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).diagnostics[0]?.code).toBe(
+      "CORE-002",
+    );
+    expect(readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"))).toEqual(stateBeforeRetry);
+    expect(f.lifecycle.start.mock.calls).toHaveLength(startsBeforeRetry);
+    expect((await repairFoundation({ yes: true }, f.dependencies)).diagnostics[0]?.code).toBe("CORE-002");
     writeFileSync(imported, "export const synthetic = true;\n");
     expect((await doctorFoundation(f.dependencies)).ok).toBe(true);
     writeFileSync(path.join(workspace, "pnpm-lock.yaml"), "lockfileVersion: 'changed'\n");
@@ -217,6 +236,13 @@ describe("Bootstrap Foundation", () => {
     expect(
       (await setupFoundation({ nonInteractive: true, yes: true, skipOpen: true, channel: "dev" }, f.dependencies)).ok,
     ).toBe(true);
+  });
+  it("refuses ambiguous Obsidian Vault names before sending a Vault-scoped command", async () => {
+    const f = fixture();
+    f.setDuplicateRegisteredName(true);
+    const result = await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    expect(result.diagnostics[0]?.code).toBe("OBS-004");
+    expect(f.runObsidian.mock.calls.every(([args]) => args[0] === "vaults")).toBe(true);
   });
   it("reloads the Vault before enabling a newly installed Plugin and diagnoses Restricted mode", async () => {
     const f = fixture();
@@ -278,6 +304,27 @@ describe("Bootstrap Foundation", () => {
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
     expect(f.lifecycle.restart).toHaveBeenCalledOnce();
   });
+  it("shows a narrow index repair plan before confirmation and validates after applying it", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    writeFileSync(path.join(f.vault, "user.md"), "synthetic user content");
+    f.setIndex("stale");
+    const stateBefore = readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"));
+    const preview = await repairFoundation({}, f.dependencies);
+    expect(preview.data.plan).toEqual({
+      vault_path: f.vault,
+      actions: ["rebuild_index"],
+      vault_preserved: true,
+    });
+    expect(preview.data.confirmation_required).toBe(true);
+    expect(f.lifecycle.restart).not.toHaveBeenCalled();
+    expect(readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"))).toEqual(stateBefore);
+    const applied = await repairFoundation({ yes: true }, f.dependencies);
+    expect(applied.ok).toBe(true);
+    expect(applied.data.actions_applied).toEqual(["rebuild_index"]);
+    expect(f.lifecycle.restart).toHaveBeenCalledOnce();
+    expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("synthetic user content");
+  });
   it("waits for the Plugin to reconnect after an index repair restarts Core", async () => {
     const f = fixture();
     await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
@@ -289,6 +336,21 @@ describe("Bootstrap Foundation", () => {
       return { state: "running" as const, pid: 123 };
     });
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
+    expect(f.client.systemHealth.mock.calls.length).toBeGreaterThan(2);
+  });
+  it("waits for the Plugin to reconnect before reporting a completed narrow repair", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    f.setIndex("stale");
+    f.lifecycle.restart.mockImplementationOnce(async () => {
+      f.setIndex("current");
+      f.setPaired(false);
+      setTimeout(() => f.setPaired(true), 20);
+      return { state: "running" as const, pid: 123 };
+    });
+    const repaired = await repairFoundation({ yes: true }, f.dependencies);
+    expect(repaired.ok).toBe(true);
+    expect(repaired.data.actions_applied).toEqual(["rebuild_index"]);
     expect(f.client.systemHealth.mock.calls.length).toBeGreaterThan(2);
   });
   it("refuses read-only Vaults before installing and refuses profile mismatches", async () => {

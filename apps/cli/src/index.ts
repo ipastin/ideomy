@@ -21,7 +21,7 @@ Commands:
   setup       Create or attach a Vault and install the local development Foundation
   status      Show a read-only component summary
   doctor      Run read-only diagnostic checks
-  repair      Explicitly resume a diagnosed installation
+  repair      Preview and apply narrow diagnosed repairs
   update      Check development artifact compatibility
   uninstall   Remove Ideomy components while preserving the Vault
 
@@ -271,16 +271,7 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     return;
   }
   if (options.command === "repair") {
-    if (!options.yes) {
-      print(
-        "repair",
-        usageFailure("Review the repair plan and pass --yes to resume setup."),
-        options.json,
-        options.quiet,
-      );
-      return;
-    }
-    print("repair", await repairFoundation(), options.json, options.quiet);
+    print("repair", await repairFoundation({ yes: options.yes }), options.json, options.quiet);
     return;
   }
   if (options.command === "uninstall") {

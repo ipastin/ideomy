@@ -251,21 +251,26 @@ function copyStarter(source: string, target: string): void {
 }
 function registeredVaultName(run: ReturnType<typeof settings>["runObsidian"], root: string): string {
   const vaults = run(["vaults", "verbose"]);
-  const entry = vaults.output
-    .split(/\r?\n/)
-    .map((line) => line.split("\t"))
-    .find((parts) => {
-      try {
-        return parts.length === 2 && typeof parts[1] === "string" && realpathSync(parts[1]) === realpathSync(root);
-      } catch {
-        return false;
-      }
-    });
+  const entries = vaults.output.split(/\r?\n/).map((line) => line.split("\t"));
+  const entry = entries.find((parts) => {
+    try {
+      return parts.length === 2 && typeof parts[1] === "string" && realpathSync(parts[1]) === realpathSync(root);
+    } catch {
+      return false;
+    }
+  });
   if (!vaults.ok || !entry?.[0])
     throw new Failure(
       "OBS-004",
       "Selected Vault is not registered in Obsidian.",
       `In Obsidian choose Open folder as vault and select ${root}, then rerun the same setup command.`,
+      10,
+    );
+  if (entries.filter((parts) => parts[0] === entry[0]).length !== 1)
+    throw new Failure(
+      "OBS-004",
+      "Multiple registered Vaults share the selected Vault name.",
+      "Use a unique Vault folder name in Obsidian, reopen it, then rerun setup.",
       10,
     );
   return entry[0];
@@ -393,6 +398,14 @@ export async function setupFoundation(
     }
     if (!existsSync(config.coreEntrypoint))
       throw new Failure("DIST-001", "Core development entrypoint is missing.", "Restore/build the Core artifacts.", 10);
+    const candidateCoreHash = coreArtifactHash(config.coreEntrypoint);
+    if (previous && (previous.core_entrypoint !== config.coreEntrypoint || previous.core_hash !== candidateCoreHash))
+      throw new Failure(
+        "CORE-002",
+        "Installed Core artifact changed since the last setup.",
+        "Run ideomy update --check; inspect the artifact before an explicit development reinstall.",
+        40,
+      );
     const manifest = JSON.parse(readFileSync(path.join(config.pluginDirectory, "manifest.json"), "utf8")) as {
       id: string;
       version: string;
@@ -414,7 +427,7 @@ export async function setupFoundation(
       completed_stages: bootstrapStages.slice(0, bootstrapStages.indexOf("PREPARE_VAULT")),
       plugin_version: manifest.version,
       core_entrypoint: config.coreEntrypoint,
-      core_hash: coreArtifactHash(config.coreEntrypoint),
+      core_hash: candidateCoreHash,
       plugin_hashes: Object.fromEntries(
         ["main.js", "manifest.json"].map((name) => [
           name,
@@ -608,6 +621,22 @@ export async function setupFoundation(
     }
     complete(stage);
     stage = "VALIDATE_VAULT";
+    for (let attempt = 0; attempt < 120; attempt++) {
+      if (
+        (connected.health.schema as Record<string, unknown>).status !== "checking" &&
+        (connected.health.index as Record<string, unknown>).status !== "checking"
+      )
+        break;
+      if (attempt === 119)
+        throw new Failure(
+          "CORE-503",
+          "Core is still checking the Vault.",
+          "Rerun setup after the deterministic Vault scan completes.",
+          90,
+        );
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      connected.health = await connected.client.systemHealth();
+    }
     if ((connected.health.schema as Record<string, unknown>).status !== "valid")
       throw new Failure(
         "SCHEMA-001",
@@ -985,44 +1014,93 @@ export async function updateFoundation(
     };
   }
 }
-export async function repairFoundation(dependencies: FoundationDependencies = {}): Promise<ShellResult> {
+export async function repairFoundation(
+  options: { yes?: boolean } = {},
+  dependencies: FoundationDependencies = {},
+): Promise<ShellResult> {
   const config = settings(dependencies);
   try {
     const state = load(config.stateDirectory);
     if (!state) throw new Failure("CONFIG-001", "Bootstrap state is missing.", "Run ideomy setup.", 20);
+    if (!existsSync(state.core_entrypoint) || coreArtifactHash(state.core_entrypoint) !== state.core_hash)
+      throw new Failure(
+        "CORE-002",
+        "Installed Core artifact changed.",
+        "Inspect ideomy update --check before an explicit development reinstall.",
+        40,
+      );
     const lifecycle =
       config.lifecycle ??
       new MacosCoreLifecycle({ stateDirectory: config.stateDirectory, entrypoint: state.core_entrypoint });
-    if (lifecycle.inspect().state === "stale") {
+    const before = await doctorFoundation(config);
+    const coreState = lifecycle.inspect().state;
+    const code = before.diagnostics[0]?.code;
+    const indexStatus = (before.data.index as { status?: string } | undefined)?.status;
+    const actions: ("repair_stale_lock" | "start_core" | "rebuild_index")[] = [];
+    if (coreState === "stale" && code === "CORE-503") actions.push("repair_stale_lock", "start_core");
+    else if (coreState === "stopped" && code === "CORE-503") actions.push("start_core");
+    else if (
+      coreState === "running" &&
+      code === "INDEX-001" &&
+      !state.index_verification_required &&
+      ["stale", "missing"].includes(indexStatus ?? "")
+    )
+      actions.push("rebuild_index");
+    const plan = { vault_path: state.vault_path, actions, vault_preserved: true };
+    if (!actions.length) return { ...before, data: { ...before.data, plan } };
+    if (!options.yes)
+      return {
+        ok: false,
+        status: "degraded",
+        exitCode: 2,
+        data: { diagnosis: before.diagnostics, plan, confirmation_required: true },
+        diagnostics: [
+          {
+            ...issue("CONFIG-001", "Review the displayed repair plan.", "Rerun ideomy repair --yes to apply it."),
+            repairable: true,
+          },
+        ],
+      };
+    const current = load(config.stateDirectory);
+    if (!current || current.core_hash !== state.core_hash || current.vault_path !== state.vault_path)
+      throw new Failure(
+        "CONFIG-001",
+        "Repair preconditions changed.",
+        "Run ideomy repair again to review a new plan.",
+        20,
+      );
+    if (actions.includes("repair_stale_lock")) {
       if (!lifecycle.repairStaleLock)
         throw new Failure("CORE-002", "Stale-lock repair is unavailable.", "Use the macOS lifecycle adapter.", 40);
       lifecycle.repairStaleLock();
     }
-    return setupFoundation(
-      {
-        mode: state.mode,
-        vault: state.vault_path,
-        nonInteractive: true,
-        yes: true,
-        skipOpen: true,
-        channel: "dev",
-        json: true,
-      },
-      { ...config, lifecycle },
-    );
-  } catch {
+    if (actions.includes("start_core")) await lifecycle.start();
+    if (actions.includes("rebuild_index")) await lifecycle.restart();
+    let after = await doctorFoundation(config);
+    if (actions.includes("start_core") || actions.includes("rebuild_index")) {
+      for (let attempt = 0; attempt < 36 && !after.ok; attempt++) {
+        if (!["PLUG-004", "INDEX-001"].includes(after.diagnostics[0]?.code ?? "")) break;
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        after = await doctorFoundation(config);
+      }
+    }
+    return { ...after, data: { ...after.data, plan, actions_applied: actions } };
+  } catch (error) {
+    const failure =
+      error instanceof Failure
+        ? error
+        : new Failure(
+            "CORE-002",
+            "Explicit repair could not establish safe Core state.",
+            "Inspect Core process identity and installation before retrying.",
+            90,
+          );
     return {
       ok: false,
       status: "failed",
-      exitCode: 90,
+      exitCode: failure.exitCode,
       data: { resumable: true },
-      diagnostics: [
-        issue(
-          "CORE-002",
-          "Explicit repair could not establish safe Core state.",
-          "Inspect Core process identity and installation before retrying.",
-        ),
-      ],
+      diagnostics: [issue(failure.code, failure.message, failure.remediation)],
     };
   }
 }

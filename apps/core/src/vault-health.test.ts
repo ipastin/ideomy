@@ -27,6 +27,7 @@ function fixture() {
   const stateDirectory = path.join(directory, "state");
   mkdirSync(vaultPath);
   mkdirSync(stateDirectory, { mode: 0o700 });
+  mkdirSync(path.join(vaultPath, ".obsidian/plugins/ideomy"), { recursive: true });
   writeFileSync(path.join(vaultPath, "person.md"), person);
   writeFileSync(path.join(vaultPath, "unmanaged.md"), "# Synthetic unmanaged\r\nuser content\r\n");
   const profile = {
@@ -36,6 +37,15 @@ function fixture() {
     vaultFingerprint: deriveVaultFingerprint(vaultPath, "synthetic"),
   };
   return { directory, profile };
+}
+
+async function waitForIndex(client: CoreClient, expected: string) {
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const health = await client.systemHealth();
+    if ((health.index as { status?: string }).status === expected) return health;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error(`Index did not reach ${expected}.`);
 }
 
 it("indexes on startup, reports external changes and missing cache, and rebuilds on restart without rewriting notes", async () => {
@@ -49,10 +59,11 @@ it("indexes on startup, reports external changes and missing cache, and rebuilds
       clientInstanceId: "cli_index",
       clientVersion: "0.0.0",
     };
-    expect(await client.connectCli(identity, readCliAdminSecret(profile.stateDirectory))).toMatchObject({
-      schema_status: "valid",
-      index_status: "current",
-    });
+    const handshake = await client.connectCli(identity, readCliAdminSecret(profile.stateDirectory));
+    expect(handshake.compatibility).toBe("compatible");
+    expect(await waitForIndex(client, "current")).toMatchObject({ status: "healthy", index: { status: "current" } });
+    writeFileSync(path.join(profile.vaultPath, ".obsidian/plugins/ideomy/connection.json"), "{}");
+    await new Promise((resolve) => setTimeout(resolve, 200));
     expect(await client.systemHealth()).toMatchObject({ status: "healthy", index: { status: "current" } });
     const cache = path.join(profile.stateDirectory, "bootstrap-index.json");
     expect(JSON.parse(readFileSync(cache, "utf8")).notes).toEqual([
@@ -67,9 +78,9 @@ it("indexes on startup, reports external changes and missing cache, and rebuilds
     });
     expect(readFileSync(cache, "utf8")).not.toContain("user content");
     writeFileSync(path.join(profile.vaultPath, "unmanaged.md"), "# Synthetic changed\r\n");
-    expect(await client.systemHealth()).toMatchObject({ status: "degraded", index: { status: "stale" } });
+    expect(await waitForIndex(client, "stale")).toMatchObject({ status: "degraded", index: { status: "stale" } });
     unlinkSync(cache);
-    expect(await client.systemHealth()).toMatchObject({ index: { status: "missing" } });
+    expect(await waitForIndex(client, "missing")).toMatchObject({ index: { status: "missing" } });
     await core.close();
     core = await startCore(profile);
     expect(inspectVault(profile)).toMatchObject({ schema: "valid", index: "current" });
