@@ -53,6 +53,7 @@ export function normalizeProperties(
   const logical = { ...physical };
   const diagnostics: VaultDiagnostic[] = [];
   const physicalKeys = new Set<string>();
+  const mapped: [string, string][] = [];
   for (const [name, target] of Object.entries(mapping)) {
     if (
       !logicalPropertyNames.has(name) ||
@@ -65,11 +66,14 @@ export function normalizeProperties(
     }
     physicalKeys.add(target);
     if (name === target) continue;
+    mapped.push([name, target]);
+  }
+  for (const [name, target] of mapped) {
     delete logical[name];
-    if (Object.hasOwn(physical, target)) {
-      logical[name] = physical[target];
-      delete logical[target];
-    }
+    delete logical[target];
+  }
+  for (const [name, target] of mapped) {
+    if (Object.hasOwn(physical, target)) logical[name] = physical[target];
   }
   return { logical, diagnostics };
 }
@@ -338,7 +342,7 @@ export function planScalarPropertyChange(
   const pair = isMap(note.frontmatter.document.contents)
     ? note.frontmatter.document.contents.items.find((item) => isScalar(item.key) && item.key.value === physicalKey)
     : undefined;
-  if (!pair || !isScalar(pair.value) || !pair.value.range) {
+  if (!pair || !isScalar(pair.value) || !pair.value.range || pair.value.anchor) {
     throw new VaultError("VAULT-108", "Target property is missing or is not a plain YAML scalar.");
   }
   const [start, end] = pair.value.range;

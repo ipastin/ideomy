@@ -68,6 +68,18 @@ describe("M0.2 Vault I/O", () => {
     );
   });
 
+  it("rejects an anchored managed scalar when a user property aliases it", () => {
+    const raw = Buffer.from(
+      project.toString("utf8").replace("status: active", "status: &state active\ncustom_property: *state"),
+    );
+    const note = parseMarkdown(raw);
+    expect(note.kind).toBe("managed");
+    expect(note.frontmatter?.physical.custom_property).toBe("active");
+    expect(() => planScalarPropertyChange(note, "status", "paused")).toThrowError(
+      expect.objectContaining({ code: "VAULT-108" }),
+    );
+  });
+
   it("invalidates every note sharing a managed Entity ID", () =>
     withSyntheticVault((root) => {
       writeFileSync(path.join(root, "first.md"), project);
@@ -138,6 +150,13 @@ describe("M0.2 Vault I/O", () => {
     expect(normalizeProperties({}, { status: "same", type: "same" }).diagnostics[0]?.code).toBe("VAULT-107");
   });
 
+  it("normalizes a valid physical-property swap independent of mapping order", () => {
+    const physical = { status: "concept", subtype: "seed" };
+    const expected = { logical: { status: "seed", subtype: "concept" }, diagnostics: [] };
+    expect(normalizeProperties(physical, { status: "subtype", subtype: "status" })).toEqual(expected);
+    expect(normalizeProperties(physical, { subtype: "status", status: "subtype" })).toEqual(expected);
+  });
+
   it("rejects a mapping that collides with an unmapped logical property", () => {
     const raw = Buffer.from(
       project
@@ -181,6 +200,19 @@ describe("M0.2 Vault I/O", () => {
     );
     expect(structure.autoIssues).toContain("mismatched AUTO end: a");
     expect(structure.autoSections).not.toContainEqual({ name: "a", begin: 1, end: 3 });
+  });
+
+  it("recognizes AUTO markers only as standalone top-level HTML comment lines", () => {
+    for (const body of [
+      "text <!-- BEGIN AUTO:x -->\nuser text\n<!-- END AUTO:x -->",
+      "> <!-- BEGIN AUTO:x -->\n> user quote\n> <!-- END AUTO:x -->",
+      "- item\n  <!-- BEGIN AUTO:x -->\n  user list\n  <!-- END AUTO:x -->",
+    ]) {
+      expect(extractMarkdownStructure(body).autoSections).toEqual([]);
+    }
+    expect(extractMarkdownStructure("<!-- BEGIN AUTO:x -->\nGenerated\n<!-- END AUTO:x -->").autoSections).toEqual([
+      { name: "x", begin: 1, end: 3 },
+    ]);
   });
 
   it("ignores escaped and entity-decoded wikilinks", () => {
