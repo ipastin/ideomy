@@ -68,6 +68,11 @@ describe("managed entity contract adoption", () => {
     const [seed, generated, runtime] = validators[type];
     for (const data of [
       example,
+      {
+        ...example,
+        created: String(example.created).replace("T", "t").replace(/Z$/, "z"),
+        updated: String(example.updated).replace("T", "t").replace(/Z$/, "z"),
+      },
       { ...example, status: "not-a-status" },
       { ...example, id: "bad-id" },
       { ...example, tags: ["duplicate", "duplicate"] },

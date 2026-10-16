@@ -2,7 +2,11 @@ import { z } from "zod";
 
 const wikiLink = z.string().regex(/^\[\[.+\]\]$/);
 const date = z.iso.date();
-const dateTime = z.iso.datetime({ offset: true });
+const isoDateTime = z.iso.datetime({ offset: true });
+const dateTime = z
+  .string()
+  .refine((value) => isoDateTime.safeParse(value.replace("t", "T").replace(/z$/, "Z")).success)
+  .meta({ format: "date-time" });
 const uniqueStrings = z
   .array(z.string())
   .refine((items) => new Set(items).size === items.length)
