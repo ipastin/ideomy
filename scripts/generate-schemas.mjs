@@ -2,8 +2,8 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
-import { protocolSchemas } from "../dist/contracts/src/index.js";
-import { entitySchemas, managedEntityBase } from "../dist/schema/src/index.js";
+import { protocolSchemas } from "../dist/packages/contracts/src/index.js";
+import { entitySchemas, managedEntityBase } from "../dist/packages/schema/src/index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
