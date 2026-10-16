@@ -70,6 +70,12 @@ describe("managed entity contract adoption", () => {
         created: String(example.created).replace("T", "t").replace(/Z$/, "z"),
         updated: String(example.updated).replace("T", "t").replace(/Z$/, "z"),
       },
+      ...["2016-12-31T23:59:60Z", "2026-10-12 12:00:00Z", "2026-10-12T12:00:00+0300"].map((value) => ({
+        ...example,
+        created: value,
+        updated: value,
+      })),
+      { ...example, created: "2026-13-12T12:00:00Z" },
       { ...example, status: "not-a-status" },
       { ...example, id: "bad-id" },
       { ...example, tags: ["duplicate", "duplicate"] },
