@@ -32,6 +32,12 @@ describe("Core protocol V1 contract adoption", () => {
         expect(Boolean(generated(variant))).toBe(Boolean(seed(variant)));
         expect(runtime.safeParse(variant).success).toBe(Boolean(seed(variant)));
       }
+      for (const value of ["2026-10-12 12:00:00Z", "2026-10-12T12:00:00+0300"]) {
+        const invalid = { ...operation, created_at: value, updated_at: value };
+        expect(Boolean(seed(invalid))).toBe(false);
+        expect(Boolean(generated(invalid))).toBe(false);
+        expect(runtime.safeParse(invalid).success).toBe(false);
+      }
     }
     const extra = { ...example, unexpected: true };
     expect(seed(extra)).toBe(false);

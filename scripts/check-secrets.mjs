@@ -13,6 +13,18 @@ const secretPatterns = [
   /\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\b/,
 ];
 
+export function isRegularRepositoryFile(file, name) {
+  let stat;
+  try {
+    stat = fs.lstatSync(file);
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+  if (stat.isSymbolicLink()) throw new Error(`Repository symlink is not scanned: ${name}`);
+  return stat.isFile();
+}
+
 const listed = spawnSync("git", ["ls-files", "-z", "--cached", "--others", "--exclude-standard"], {
   cwd: root,
   encoding: "buffer",
@@ -22,10 +34,7 @@ if (listed.status !== 0) throw new Error(listed.stderr.toString("utf8"));
 const findings = [];
 for (const name of listed.stdout.toString("utf8").split("\0").filter(Boolean)) {
   const file = path.join(root, name);
-  if (!fs.existsSync(file)) continue;
-  const stat = fs.lstatSync(file);
-  if (stat.isSymbolicLink()) throw new Error(`Repository symlink is not scanned: ${name}`);
-  if (!stat.isFile()) continue;
+  if (!isRegularRepositoryFile(file, name)) continue;
   const bytes = fs.readFileSync(file);
   if (bytes.includes(0)) continue;
   const text = bytes.toString("utf8");

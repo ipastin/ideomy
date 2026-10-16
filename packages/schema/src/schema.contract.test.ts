@@ -54,9 +54,10 @@ describe("managed entity contract adoption", () => {
     expect(Object.keys(registry.types).sort()).toEqual(Object.keys(entitySchemas).sort());
     for (const [type, schema] of Object.entries(entitySchemas)) {
       const generated = z.toJSONSchema(schema);
-      expect((generated.properties?.status as { enum?: string[] }).enum).toEqual(registry.types[type].statuses);
+      const properties = generated.properties as Record<string, { enum?: string[] }> | undefined;
+      expect(properties?.status?.enum).toEqual(registry.types[type].statuses);
       if (registry.types[type].subtypes.length) {
-        expect((generated.properties?.subtype as { enum?: string[] }).enum).toEqual(registry.types[type].subtypes);
+        expect(properties?.subtype?.enum).toEqual(registry.types[type].subtypes);
       }
     }
   });
@@ -83,6 +84,19 @@ describe("managed entity contract adoption", () => {
       const expected = Boolean(seed(data));
       expect(Boolean(generated(data))).toBe(expected);
       expect(runtime.safeParse(data).success).toBe(expected);
+    }
+    const wrongPrefix = {
+      ...example,
+      id: `${type === "area" ? "prj" : "area"}_${String(example.id).split("_")[1]}`,
+    };
+    expect(Boolean(seed(wrongPrefix))).toBe(false);
+    expect(Boolean(generated(wrongPrefix))).toBe(false);
+    expect(runtime.safeParse(wrongPrefix).success).toBe(false);
+    for (const value of ["2026-10-12 12:00:00Z", "2026-10-12T12:00:00+0300"]) {
+      const nonRfc3339 = { ...example, created: value, updated: value };
+      expect(Boolean(seed(nonRfc3339))).toBe(false);
+      expect(Boolean(generated(nonRfc3339))).toBe(false);
+      expect(runtime.safeParse(nonRfc3339).success).toBe(false);
     }
   });
 });
