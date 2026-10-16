@@ -412,6 +412,23 @@ export async function setupFoundation(
     };
     if (manifest.id !== "ideomy" || typeof manifest.version !== "string")
       throw new Failure("PLUG-001", "Plugin manifest is invalid.", "Build the Ideomy development Plugin.", 30);
+    const candidatePluginHashes = Object.fromEntries(
+      ["main.js", "manifest.json"].map((name) => [
+        name,
+        hashRaw(readFileSync(path.join(config.pluginDirectory, name))),
+      ]),
+    );
+    if (
+      previous &&
+      (previous.plugin_version !== manifest.version ||
+        Object.entries(candidatePluginHashes).some(([name, hash]) => previous.plugin_hashes?.[name] !== hash))
+    )
+      throw new Failure(
+        "PLUG-002",
+        "Plugin artifact changed since the last setup.",
+        "Run ideomy update --check; inspect the artifact before an explicit development reinstall.",
+        30,
+      );
     directory(config.stateDirectory);
     if ((lstatSync(config.stateDirectory).mode & 0o077) !== 0)
       throw new Failure(
@@ -428,12 +445,7 @@ export async function setupFoundation(
       plugin_version: manifest.version,
       core_entrypoint: config.coreEntrypoint,
       core_hash: candidateCoreHash,
-      plugin_hashes: Object.fromEntries(
-        ["main.js", "manifest.json"].map((name) => [
-          name,
-          hashRaw(readFileSync(path.join(config.pluginDirectory, name))),
-        ]),
-      ),
+      plugin_hashes: candidatePluginHashes,
       index_verification_required: options.skipIndex === true,
     };
     save(path.join(config.stateDirectory, "bootstrap-state.json"), state);
@@ -1015,7 +1027,10 @@ export async function updateFoundation(
   }
 }
 export async function repairFoundation(
-  options: { yes?: boolean } = {},
+  options: {
+    yes?: boolean;
+    onPlan?: (plan: { vault_path: string; actions: string[]; vault_preserved: true }) => void;
+  } = {},
   dependencies: FoundationDependencies = {},
 ): Promise<ShellResult> {
   const config = settings(dependencies);
@@ -1046,7 +1061,7 @@ export async function repairFoundation(
       ["stale", "missing"].includes(indexStatus ?? "")
     )
       actions.push("rebuild_index");
-    const plan = { vault_path: state.vault_path, actions, vault_preserved: true };
+    const plan = { vault_path: state.vault_path, actions, vault_preserved: true as const };
     if (!actions.length) return { ...before, data: { ...before.data, plan } };
     if (!options.yes)
       return {
@@ -1061,6 +1076,7 @@ export async function repairFoundation(
           },
         ],
       };
+    options.onPlan?.(plan);
     const current = load(config.stateDirectory);
     if (!current || current.core_hash !== state.core_hash || current.vault_path !== state.vault_path)
       throw new Failure(
@@ -1134,7 +1150,7 @@ export async function uninstallFoundation(dependencies: FoundationDependencies =
     safePath(target);
     if (existsSync(path.join(target, "manifest.json"))) {
       const disabled = vaultCommand(config.runObsidian, state.vault_path, ["plugin:disable", "id=ideomy"]);
-      if (!disabled.ok)
+      if (!disabled.ok && !/^Error: Plugin "ideomy" is already disabled\.$/m.test(disabled.output))
         throw new Failure(
           "PLUG-003",
           "Plugin could not be disabled.",

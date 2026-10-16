@@ -271,7 +271,15 @@ export async function run(args: string[] = process.argv.slice(2)): Promise<void>
     return;
   }
   if (options.command === "repair") {
-    print("repair", await repairFoundation({ yes: options.yes }), options.json, options.quiet);
+    print(
+      "repair",
+      await repairFoundation({
+        yes: options.yes,
+        onPlan: (plan) => process.stderr.write(`Repair plan: ${JSON.stringify(plan)}\n`),
+      }),
+      options.json,
+      options.quiet,
+    );
     return;
   }
   if (options.command === "uninstall") {

@@ -46,6 +46,7 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
   let duplicateRegisteredName = false;
   let enabled = false;
   let restricted = false;
+  let alreadyDisabled = false;
   let paired = true;
   let index = "current";
   const runObsidian = vi.fn((args: string[]) => {
@@ -59,6 +60,8 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
     if (args[0] !== `vault=${registeredName}`) return { ok: false, output: "Vault not found." };
     if (args[1] === "plugins:restrict") return { ok: true, output: restricted ? "on" : "off" };
     if (args[1] === "plugin:enable" && restricted) return { ok: false, output: "Restricted mode is on." };
+    if (args[1] === "plugin:disable" && alreadyDisabled)
+      return { ok: false, output: 'Error: Plugin "ideomy" is already disabled.' };
     if (args[1] === "plugin:enable") enabled = true;
     if (args[1] === "plugin:disable") enabled = false;
     return { ok: true, output: args[1] === "plugins:enabled" && enabled ? "ideomy\t0.0.1\n" : "" };
@@ -126,6 +129,9 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
     },
     setRestricted: (value: boolean) => {
       restricted = value;
+    },
+    setAlreadyDisabled: (value: boolean) => {
+      alreadyDisabled = value;
     },
     setPaired: (value: boolean) => {
       paired = value;
@@ -319,8 +325,19 @@ describe("Bootstrap Foundation", () => {
     expect(preview.data.confirmation_required).toBe(true);
     expect(f.lifecycle.restart).not.toHaveBeenCalled();
     expect(readFileSync(path.join(f.stateDirectory, "bootstrap-state.json"))).toEqual(stateBefore);
-    const applied = await repairFoundation({ yes: true }, f.dependencies);
+    let shownPlan: unknown;
+    const applied = await repairFoundation(
+      {
+        yes: true,
+        onPlan: (plan) => {
+          shownPlan = plan;
+          expect(f.lifecycle.restart).not.toHaveBeenCalled();
+        },
+      },
+      f.dependencies,
+    );
     expect(applied.ok).toBe(true);
+    expect(shownPlan).toEqual(preview.data.plan);
     expect(applied.data.actions_applied).toEqual(["rebuild_index"]);
     expect(f.lifecycle.restart).toHaveBeenCalledOnce();
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("synthetic user content");
@@ -401,6 +418,26 @@ describe("Bootstrap Foundation", () => {
     expect((await doctorFoundation(f.dependencies)).diagnostics[0]?.code).toBe("PLUG-002");
     expect((await uninstallFoundation(f.dependencies)).ok).toBe(false);
     expect(readFileSync(main, "utf8")).toBe("user modification");
+  });
+  it("retries uninstall when the Plugin was already disabled by an earlier attempt", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    f.setAlreadyDisabled(true);
+    expect((await uninstallFoundation(f.dependencies)).ok).toBe(true);
+    expect(existsSync(path.join(f.vault, ".obsidian/plugins/ideomy/main.js"))).toBe(false);
+  });
+  it("does not replace the Plugin baseline when a candidate bundle changes", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    const stateFile = path.join(f.stateDirectory, "bootstrap-state.json");
+    const stateBefore = readFileSync(stateFile);
+    writeFileSync(path.join(f.pluginDirectory, "main.js"), "// changed candidate bundle");
+    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).diagnostics[0]?.code).toBe(
+      "PLUG-002",
+    );
+    expect(readFileSync(stateFile)).toEqual(stateBefore);
+    expect((await doctorFoundation(f.dependencies)).ok).toBe(true);
+    expect((await uninstallFoundation(f.dependencies)).ok).toBe(true);
   });
   it("checks development updates without mutating installed artifacts or the Vault", async () => {
     const f = fixture("My Vault's Notes");
