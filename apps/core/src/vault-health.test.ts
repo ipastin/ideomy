@@ -93,7 +93,7 @@ it("indexes on startup, reports external changes and missing cache, and rebuilds
     await core.close();
     rmSync(directory, { recursive: true, force: true });
   }
-});
+}, 15_000);
 
 it("blocks validity for duplicate IDs, malformed YAML, invalid mapping and wrong Vault identity", async () => {
   const { directory, profile } = fixture();

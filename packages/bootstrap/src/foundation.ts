@@ -600,6 +600,18 @@ export async function setupFoundation(
     }
     save(connectionFile, metadata);
     if (
+      (connected.health.core as Record<string, unknown>).plugin_paired === true &&
+      ((connected.health.core as Record<string, unknown>).plugin_authenticated !== true ||
+        (connected.health.core as Record<string, unknown>).plugin_handshake !== true)
+    ) {
+      for (let attempt = 0; attempt < 36; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 1_000));
+        connected.health = await connected.client.systemHealth();
+        const core = connected.health.core as Record<string, unknown>;
+        if (core.plugin_authenticated === true && core.plugin_handshake === true) break;
+      }
+    }
+    if (
       (connected.health.core as Record<string, unknown>).plugin_authenticated !== true ||
       (connected.health.core as Record<string, unknown>).plugin_handshake !== true
     ) {
@@ -820,13 +832,27 @@ export async function doctorFoundation(dependencies: FoundationDependencies = {}
           ],
     };
   } catch (error) {
+    let stoppedCore = false;
+    try {
+      const state = load(config.stateDirectory);
+      if (state) {
+        const lifecycle =
+          config.lifecycle ??
+          new MacosCoreLifecycle({ stateDirectory: config.stateDirectory, entrypoint: state.core_entrypoint });
+        stoppedCore = ["stopped", "stale"].includes(lifecycle.inspect().state);
+      }
+    } catch {
+      /* Preserve the original diagnostic when local state cannot be inspected. */
+    }
     const failure =
       error instanceof Failure
         ? error
         : new Failure(
-            error instanceof CoreClientError ? error.code : "CONFIG-001",
-            "Installed Foundation state could not be verified.",
-            "Run ideomy setup to inspect and resume installation.",
+            error instanceof CoreClientError ? error.code : stoppedCore ? "CORE-503" : "CONFIG-001",
+            stoppedCore ? "Core is stopped or has a stale lock." : "Installed Foundation state could not be verified.",
+            stoppedCore
+              ? "Run ideomy repair to inspect a narrow restart plan, or rerun setup."
+              : "Run ideomy setup to inspect and resume installation.",
             90,
           );
     return {

@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { CoreClient } from "@ideomy/core-client";
-import { CoreStartupPendingError } from "@ideomy/platform";
+import { type CoreProcessState, CoreStartupPendingError } from "@ideomy/platform";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   doctorFoundation,
@@ -68,7 +68,7 @@ function fixture(vaultName = "Vault", registeredName = "Synthetic") {
   });
   const openVault = vi.fn(() => ({ ok: true, output: "" }));
   const lifecycle = {
-    inspect: vi.fn(() => ({ state: "running" as const, pid: 123 })),
+    inspect: vi.fn((): CoreProcessState => ({ state: "running", pid: 123 })),
     start: vi.fn(async () => {
       writeFileSync(path.join(stateDirectory, "core-admin.secret"), "A".repeat(43), { mode: 0o600 });
       const profile = JSON.parse(readFileSync(path.join(stateDirectory, "core-profile.json"), "utf8"));
@@ -342,6 +342,22 @@ describe("Bootstrap Foundation", () => {
     expect(f.lifecycle.restart).toHaveBeenCalledOnce();
     expect(readFileSync(path.join(f.vault, "user.md"), "utf8")).toBe("synthetic user content");
   });
+  it("diagnoses a stopped Core and plans only its restart", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    f.lifecycle.inspect.mockReturnValue({ state: "stopped" });
+    f.client.connectCli.mockRejectedValueOnce(new Error("synthetic discovery missing"));
+    expect((await doctorFoundation(f.dependencies)).diagnostics[0]?.code).toBe("CORE-503");
+    f.client.connectCli.mockRejectedValueOnce(new Error("synthetic discovery missing"));
+    const preview = await repairFoundation({}, f.dependencies);
+    expect(preview.data.plan).toEqual({ vault_path: f.vault, actions: ["start_core"], vault_preserved: true });
+    expect(f.lifecycle.start).toHaveBeenCalledTimes(1); // Initial setup only.
+    f.client.connectCli.mockRejectedValueOnce(new Error("synthetic discovery missing"));
+    const repaired = await repairFoundation({ yes: true }, f.dependencies);
+    expect(repaired.ok).toBe(true);
+    expect(repaired.data.actions_applied).toEqual(["start_core"]);
+    expect(f.lifecycle.start).toHaveBeenCalledTimes(2);
+  });
   it("waits for the Plugin to reconnect after an index repair restarts Core", async () => {
     const f = fixture();
     await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
@@ -354,6 +370,25 @@ describe("Bootstrap Foundation", () => {
     });
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
     expect(f.client.systemHealth.mock.calls.length).toBeGreaterThan(2);
+  });
+  it("waits for a previously paired Plugin after a stopped Core resumes", async () => {
+    const f = fixture();
+    await setupFoundation({ ...options, vault: f.vault }, f.dependencies);
+    const health = f.client.systemHealth.getMockImplementation();
+    if (!health) throw new Error("Synthetic health implementation is missing.");
+    let reconnected = false;
+    f.client.systemHealth.mockImplementation(async () => {
+      const current = await health();
+      return {
+        ...current,
+        core: { plugin_paired: true, plugin_authenticated: reconnected, plugin_handshake: reconnected },
+      };
+    });
+    setTimeout(() => {
+      reconnected = true;
+    }, 20);
+    expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
+    expect(f.client.openPairingWindow).not.toHaveBeenCalled();
   });
   it("waits for the Plugin to reconnect before reporting a completed narrow repair", async () => {
     const f = fixture();
