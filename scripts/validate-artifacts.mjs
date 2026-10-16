@@ -65,6 +65,14 @@ function* markdownFiles(directory) {
   }
 }
 
+export function fixtureFrontmatter(raw, name) {
+  const normalized = raw.replaceAll("\r\n", "\n");
+  if (!normalized.startsWith("---\n")) return null;
+  const end = normalized.indexOf("\n---", 4);
+  if (end < 0) throw new Error(`${name}: unclosed frontmatter`);
+  return normalized.slice(4, end);
+}
+
 function validateFixtures() {
   validateSchemas();
   const registry = readJson("schemas/registry.json");
@@ -77,10 +85,9 @@ function validateFixtures() {
     count++;
     const relative = path.relative(fixtureRoot, file);
     const raw = fs.readFileSync(file, "utf8");
-    if (!raw.startsWith("---\n")) continue;
-    const end = raw.indexOf("\n---", 4);
-    if (end < 0) throw new Error(`${relative}: unclosed frontmatter`);
-    const document = YAML.parseDocument(raw.slice(4, end), { uniqueKeys: true });
+    const frontmatter = fixtureFrontmatter(raw, relative);
+    if (frontmatter === null) continue;
+    const document = YAML.parseDocument(frontmatter, { uniqueKeys: true });
     const issues = document.errors.map((error) => error.message);
     const data = document.toJS();
     if (data?.ideomy_schema !== undefined) {
@@ -108,8 +115,10 @@ function validateFixtures() {
   console.log(`Validated ${count} synthetic fixture notes (${actualInvalid.size} expected invalid)`);
 }
 
-const mode = process.argv[2];
-if (mode === "schemas") validateSchemas();
-else if (mode === "contracts") validateContracts();
-else if (mode === "fixtures") validateFixtures();
-else throw new Error("Usage: validate-artifacts.mjs schemas|contracts|fixtures");
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const mode = process.argv[2];
+  if (mode === "schemas") validateSchemas();
+  else if (mode === "contracts") validateContracts();
+  else if (mode === "fixtures") validateFixtures();
+  else throw new Error("Usage: validate-artifacts.mjs schemas|contracts|fixtures");
+}
