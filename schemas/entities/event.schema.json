@@ -12,6 +12,9 @@
         "type": {
           "const": "event"
         },
+        "id": {
+          "pattern": "^evt_"
+        },
         "status": {
           "enum": [
             "planned",

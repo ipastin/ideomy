@@ -12,6 +12,9 @@
         "type": {
           "const": "knowledge"
         },
+        "id": {
+          "pattern": "^kn_"
+        },
         "status": {
           "enum": [
             "seed",

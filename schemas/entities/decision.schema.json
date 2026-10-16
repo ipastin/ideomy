@@ -12,6 +12,9 @@
         "type": {
           "const": "decision"
         },
+        "id": {
+          "pattern": "^dec_"
+        },
         "status": {
           "enum": [
             "proposed",

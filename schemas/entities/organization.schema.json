@@ -12,6 +12,9 @@
         "type": {
           "const": "organization"
         },
+        "id": {
+          "pattern": "^org_"
+        },
         "status": {
           "enum": [
             "active",

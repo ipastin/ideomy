@@ -12,6 +12,9 @@
         "type": {
           "const": "goal"
         },
+        "id": {
+          "pattern": "^gol_"
+        },
         "status": {
           "enum": [
             "draft",

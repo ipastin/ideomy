@@ -12,6 +12,9 @@
         "type": {
           "const": "area"
         },
+        "id": {
+          "pattern": "^area_"
+        },
         "status": {
           "enum": [
             "active",

@@ -12,6 +12,9 @@
         "type": {
           "const": "source"
         },
+        "id": {
+          "pattern": "^src_"
+        },
         "status": {
           "enum": [
             "inbox",
