@@ -1,9 +1,10 @@
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { hashRaw, scanVault } from "@ideomy/vault-io";
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
-import { BetterSqliteStore, indexFilename, inspectIndex, relationTargets } from "./index.ts";
+import { BetterSqliteStore, indexFilename, indexRevision, inspectIndex, relationTargets } from "./index.ts";
 
 const fixtures = path.resolve(import.meta.dirname, "../../../fixtures/test-vault");
 const project = "10 Projects/Build Ideomy v1.md";
@@ -129,7 +130,7 @@ it("keeps relationship targets within the machine contract's entity type", () =>
               "SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'",
             )
             .get(projectId),
-        ).toMatchObject({ target_id: expect.stringMatching(/^area_/), resolution: "resolved" });
+        ).toEqual({ target_id: null, resolution: "ambiguous" });
       } finally {
         resolved.close();
       }
@@ -155,6 +156,115 @@ it("keeps relationship targets within the machine contract's entity type", () =>
       } finally {
         exactPath.close();
       }
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("resolves at the first matching tier before type checks and includes unmanaged collisions", () => {
+  const f = syntheticVault();
+  try {
+    const projectFile = path.join(f.vaultRoot, project);
+    const original = readFileSync(projectFile, "utf8");
+    const areaFile = path.join(f.vaultRoot, area);
+    const areaOriginal = readFileSync(areaFile, "utf8");
+    const unmanagedFile = path.join(f.vaultRoot, "Other/Technology & AI.md");
+    mkdirSync(path.dirname(unmanagedFile), { recursive: true });
+    writeFileSync(unmanagedFile, "# Synthetic unmanaged\n");
+    const store = new BetterSqliteStore(f.databasePath);
+    const relation = () => {
+      const db = new Database(f.databasePath, { readonly: true });
+      try {
+        return db
+          .prepare("SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'")
+          .get(projectId);
+      } finally {
+        db.close();
+      }
+    };
+    try {
+      store.rebuild(f.input);
+      expect(relation()).toEqual({ target_id: null, resolution: "ambiguous" });
+
+      renameSync(unmanagedFile, path.join(f.vaultRoot, "Other/Unmanaged.md"));
+      writeFileSync(path.join(f.vaultRoot, "Other/Unmanaged.md"), "# Technology & AI\n");
+      store.rebuild(f.input);
+      expect(relation()).toEqual({ target_id: null, resolution: "ambiguous" });
+      renameSync(path.join(f.vaultRoot, "Other/Unmanaged.md"), unmanagedFile);
+
+      writeFileSync(projectFile, original.replace("[[Technology & AI]]", "[[Other/Technology & AI]]"));
+      writeFileSync(
+        areaFile,
+        areaOriginal.replace("status: active", 'status: active\naliases: ["Other/Technology & AI"]'),
+      );
+      store.rebuild(f.input);
+      expect(relation()).toEqual({ target_id: null, resolution: "missing" });
+
+      writeFileSync(projectFile, original.replace("[[Technology & AI]]", "[[Shared alias]]"));
+      writeFileSync(areaFile, areaOriginal.replace("status: active", 'status: active\naliases: ["Shared alias"]'));
+      writeFileSync(unmanagedFile, '---\naliases: ["Shared alias"]\n---\n# Synthetic unmanaged\n');
+      store.rebuild(f.input);
+      expect(relation()).toEqual({ target_id: null, resolution: "ambiguous" });
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("marks pre-decision index revisions stale and rebuilds edges without changing Markdown", () => {
+  const f = syntheticVault();
+  try {
+    const collision = path.join(f.vaultRoot, "Other/Technology & AI.md");
+    mkdirSync(path.dirname(collision), { recursive: true });
+    writeFileSync(collision, "# Synthetic unmanaged\n");
+    const source = path.join(f.vaultRoot, project);
+    const before = readFileSync(source);
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      const notes = scanVault(f.vaultRoot).notes;
+      const oldRevision = hashRaw(
+        Buffer.from(
+          JSON.stringify({
+            vaultId: f.input.vaultId,
+            vaultFingerprint: f.input.vaultFingerprint,
+            mapping: {},
+            files: notes.map(({ path: file, note }) => [file, note.hash]),
+          }),
+        ),
+      );
+      const currentRevision = indexRevision(notes, f.input);
+      expect(currentRevision).not.toBe(oldRevision);
+      store.rebuild(f.input);
+      const old = new Database(f.databasePath);
+      old.prepare("UPDATE index_metadata SET value = ? WHERE key = 'revision'").run(oldRevision);
+      const areaId = (old.prepare("SELECT id FROM entities WHERE type = 'area'").get() as { id: string }).id;
+      old
+        .prepare(
+          "UPDATE relationships SET target_id = ?, resolution = 'resolved' WHERE source_id = ? AND property = 'primary_area'",
+        )
+        .run(areaId, projectId);
+      old.close();
+      expect(inspectIndex(f.databasePath, currentRevision)).toBe("stale");
+      store.rebuild(f.input);
+      expect(inspectIndex(f.databasePath, currentRevision)).toBe("current");
+      const rebuilt = new Database(f.databasePath, { readonly: true });
+      try {
+        expect(
+          rebuilt
+            .prepare(
+              "SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'",
+            )
+            .get(projectId),
+        ).toEqual({ target_id: null, resolution: "ambiguous" });
+      } finally {
+        rebuilt.close();
+      }
+      expect(readFileSync(source)).toEqual(before);
     } finally {
       store.close();
     }
