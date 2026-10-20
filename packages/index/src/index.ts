@@ -44,6 +44,9 @@ function hasRequiredSchema(db: Database.Database): boolean {
     ["source_path", "target_path", "resolution"].every((name) => wikiColumns.some((column) => column.name === name)) &&
     ["aliases", "activity_at"].every((name) =>
       (db.prepare("PRAGMA table_info(documents)").all() as { name: string }[]).some((column) => column.name === name),
+    ) &&
+    (db.prepare("PRAGMA table_info(documents)").all() as { name: string }[]).some(
+      (column) => column.name === "capture_marker",
     )
   );
 }
@@ -63,6 +66,7 @@ export interface SqliteStore {
   rebuild(input: IndexInput): string;
   revision(): string | null;
   search(query: string): SearchHit[];
+  searchTerms(query: string, operator?: "and" | "or"): TermSearchHit[];
   notes(): IndexedNote[];
   lookupExact(query: string): LookupResult;
   edges(): IndexedEdge[];
@@ -79,6 +83,7 @@ export type IndexInput = {
 };
 
 export type SearchHit = { path: string; entityId: string | null; title: string };
+export type TermSearchHit = SearchHit & { lexicalScore: number };
 export type IndexedNote = SearchHit & {
   basename: string;
   aliases: string[];
@@ -88,6 +93,8 @@ export type IndexedNote = SearchHit & {
   sensitivity: string;
   agentAccess: string;
   activityAt: string | null;
+  kind: "managed" | "unmanaged";
+  captureMarker: string | null;
 };
 export type IndexedEdge = {
   kind: "typed" | "wiki";
@@ -103,6 +110,7 @@ export type LookupResult =
 export const indexFilename = "structured-index.sqlite";
 const relationResolutionVersion = 2;
 const graphIndexVersion = 1;
+const scopedRetrievalIndexVersion = 1;
 
 type Entry = { path: string; note: ParsedNote };
 
@@ -116,6 +124,7 @@ export function indexRevision(entries: Entry[], input: IndexInput): string {
       JSON.stringify({
         relationResolutionVersion,
         graphIndexVersion,
+        scopedRetrievalIndexVersion,
         vaultId: input.vaultId,
         vaultFingerprint: input.vaultFingerprint,
         mapping: Object.fromEntries(
@@ -218,7 +227,7 @@ export class BetterSqliteStore implements SqliteStore {
       const entity = this.db.prepare("INSERT INTO entities VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       const file = this.db.prepare("INSERT INTO file_state VALUES (?, ?, ?, ?)");
       const document = this.db.prepare(
-        "INSERT INTO documents(path, entity_id, title, sensitivity, agent_access, aliases, activity_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO documents(path, entity_id, title, sensitivity, agent_access, aliases, activity_at, capture_marker) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
       );
       const chunk = this.db.prepare("INSERT INTO chunks(path, ordinal, content) VALUES (?, 0, ?)");
       const fts = this.db.prepare("INSERT INTO fts_chunks(rowid, title, content) VALUES (?, ?, ?)");
@@ -254,6 +263,9 @@ export class BetterSqliteStore implements SqliteStore {
           agentAccess,
           JSON.stringify(aliases),
           typeof activityAt === "string" ? activityAt : null,
+          props?.ideomy_capture === "web-v1" && props.capture_type === "web" && props.capture_status === "inbox"
+            ? "web-v1"
+            : null,
         );
         const content = entry.note.bodyBytes.toString("utf8");
         const result = chunk.run(entry.path, content);
@@ -297,10 +309,46 @@ export class BetterSqliteStore implements SqliteStore {
       .all(literal) as SearchHit[];
   }
 
+  searchTerms(query: string, operator: "and" | "or" = "and"): TermSearchHit[] {
+    const terms = [
+      ...new Set(
+        query
+          .normalize("NFC")
+          .toLowerCase()
+          .match(/[\p{L}\p{N}]+/gu) ?? [],
+      ),
+    ];
+    if (!terms.length) return [];
+    const statement = this.db.prepare(`SELECT d.path, d.entity_id AS entityId, d.title, c.content
+      FROM fts_chunks f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
+      WHERE fts_chunks MATCH ? ORDER BY d.path`);
+    const expression = terms
+      .map((term) => `"${term.replaceAll('"', '""')}"`)
+      .join(operator === "and" ? " AND " : " OR ");
+    const rows = statement.all(expression) as (SearchHit & { content: string })[];
+    return rows.map(({ content, ...hit }) => {
+      const title = new Set(
+        hit.title
+          .normalize("NFC")
+          .toLowerCase()
+          .match(/[\p{L}\p{N}]+/gu) ?? [],
+      );
+      const body = new Set(
+        content
+          .normalize("NFC")
+          .toLowerCase()
+          .match(/[\p{L}\p{N}]+/gu) ?? [],
+      );
+      const lexicalScore = terms.reduce((score, term) => score + (title.has(term) ? 5 : body.has(term) ? 1 : 0), 0);
+      return { ...hit, lexicalScore };
+    });
+  }
+
   notes(): IndexedNote[] {
     const rows = this.db
       .prepare(`SELECT d.path, d.entity_id AS entityId, d.title, d.aliases,
-      e.type, e.status, f.hash, d.sensitivity, d.agent_access AS agentAccess, d.activity_at AS activityAt
+      e.type, e.status, f.hash, f.kind, d.sensitivity, d.agent_access AS agentAccess,
+      d.activity_at AS activityAt, d.capture_marker AS captureMarker
       FROM documents d JOIN file_state f ON f.path = d.path
       LEFT JOIN entities e ON e.id = d.entity_id ORDER BY d.path`)
       .all() as (Omit<IndexedNote, "basename" | "aliases"> & { aliases: string })[];

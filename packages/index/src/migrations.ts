@@ -39,4 +39,5 @@ export const migrations = [
    );
    CREATE INDEX relationships_target_id ON relationships(target_id);
    CREATE INDEX wiki_links_target_path ON wiki_links(target_path);`,
+  `ALTER TABLE documents ADD COLUMN capture_marker TEXT;`,
 ] as const;

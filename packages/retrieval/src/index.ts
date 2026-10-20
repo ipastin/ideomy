@@ -36,6 +36,36 @@ export type AccessContext = {
   expectedRevision: string;
 };
 
+export type ScopedRequest = {
+  query: string;
+  scope: { kind: "unscoped" } | { kind: "area"; areaId: string };
+  confirmedInboxRoot?: string;
+  vaultFingerprint: string;
+  expectedRevision: string;
+} & ({ purpose: "agent_context" } | { purpose: "local_discovery" });
+
+type ScopedMetadata = {
+  entityId: string | null;
+  path: string;
+  hash: string;
+  title: string;
+  type: string | null;
+  status: string | null;
+  agentAccess: string;
+  sourceKind: "managed" | "unmanaged" | "raw_web_capture" | "raw_inbox" | "processed_source";
+  scopeReason: "unscoped" | "primary_area" | "related_areas";
+  trust: "untrusted_data";
+};
+
+export type ScopedResult =
+  | {
+      purpose: "agent_context";
+      vaultFingerprint: string;
+      indexRevision: string;
+      hits: (ScopedMetadata & { text: string })[];
+    }
+  | { purpose: "local_discovery"; vaultFingerprint: string; indexRevision: string; hits: ScopedMetadata[] };
+
 export class RetrievalError extends Error {
   constructor(
     readonly code: string,
@@ -70,6 +100,105 @@ const authority = (note: IndexedNote): number => {
   if (note.type === "journal") return 1;
   return note.entityId ? 2 : 0;
 };
+
+export function retrieveScoped(
+  store: SqliteStore,
+  request: ScopedRequest & { purpose: "agent_context" },
+): Extract<ScopedResult, { purpose: "agent_context" }>;
+export function retrieveScoped(
+  store: SqliteStore,
+  request: ScopedRequest & { purpose: "local_discovery" },
+): Extract<ScopedResult, { purpose: "local_discovery" }>;
+export function retrieveScoped(store: SqliteStore, request: ScopedRequest): ScopedResult {
+  const revision = store.revision();
+  if (!request.vaultFingerprint || request.vaultFingerprint !== store.vaultFingerprint())
+    throw new RetrievalError("RETRIEVAL-001", "Wrong Vault fingerprint.");
+  if (!revision || revision !== request.expectedRevision)
+    throw new RetrievalError("RETRIEVAL-002", "Index revision is missing or stale.");
+  const root = request.confirmedInboxRoot;
+  if (
+    root !== undefined &&
+    (!root || root.startsWith("/") || root.split("/").some((part) => !part || part === "." || part === ".."))
+  )
+    throw new RetrievalError("RETRIEVAL-004", "Confirmed Inbox root must be a relative Vault path.");
+  const notes = store.notes();
+  const areaId = request.scope.kind === "area" ? request.scope.areaId : null;
+  if (
+    request.scope.kind === "area" &&
+    (!areaId || !notes.some((note) => note.entityId === areaId && note.type === "area"))
+  )
+    throw new RetrievalError("RETRIEVAL-004", "Area ID is missing from the index.");
+  const areaReason = new Map<string, "primary_area" | "related_areas">();
+  if (areaId) {
+    const area = notes.find((note) => note.entityId === areaId);
+    for (const edge of store.edges()) {
+      if (edge.kind !== "typed" || edge.targetPath !== area?.path) continue;
+      if (edge.property === "primary_area") areaReason.set(edge.sourcePath, "primary_area");
+      else if (edge.property === "related_areas" && !areaReason.has(edge.sourcePath))
+        areaReason.set(edge.sourcePath, "related_areas");
+    }
+  }
+  const byPath = new Map(notes.map((note) => [note.path, note]));
+  const rank = (operator: "and" | "or") =>
+    store.searchTerms(request.query, operator).flatMap((hit) => {
+      const note = byPath.get(hit.path);
+      if (!note || (note.kind === "managed" && note.agentAccess === "denied")) return [];
+      const scopeReason: ScopedMetadata["scopeReason"] | undefined = areaId ? areaReason.get(note.path) : "unscoped";
+      if (!scopeReason) return [];
+      const inInbox = root !== undefined && (note.path === root || note.path.startsWith(`${root}/`));
+      const sourceKind: ScopedMetadata["sourceKind"] | null =
+        note.type === "source" && note.status === "processed"
+          ? "processed_source"
+          : note.captureMarker === "web-v1"
+            ? "raw_web_capture"
+            : inInbox && (note.kind === "unmanaged" || note.type === "source")
+              ? "raw_inbox"
+              : note.type === "source"
+                ? null
+                : note.kind;
+      if (!sourceKind) return [];
+      if (request.purpose === "agent_context" && !allowed(note)) return [];
+      const prior = sourceKind === "raw_inbox" || sourceKind === "raw_web_capture" ? 0 : authority(note);
+      return [{ note, sourceKind, scopeReason, score: hit.lexicalScore * 10 + prior }];
+    });
+  const ranked = rank("and");
+  if (!ranked.length) ranked.push(...rank("or"));
+  ranked.sort(
+    (a, b) =>
+      (a.scopeReason === "primary_area" ? 0 : a.scopeReason === "related_areas" ? 1 : 2) -
+        (b.scopeReason === "primary_area" ? 0 : b.scopeReason === "related_areas" ? 1 : 2) ||
+      b.score - a.score ||
+      (a.note.path < b.note.path ? -1 : a.note.path > b.note.path ? 1 : 0),
+  );
+  const metadata = (item: (typeof ranked)[number]): ScopedMetadata => ({
+    entityId: item.note.entityId,
+    path: item.note.path,
+    hash: item.note.hash,
+    title: item.note.title,
+    type: item.note.type,
+    status: item.note.status,
+    agentAccess: item.note.agentAccess,
+    sourceKind: item.sourceKind,
+    scopeReason: item.scopeReason,
+    trust: "untrusted_data",
+  });
+  if (request.purpose === "local_discovery")
+    return {
+      purpose: "local_discovery",
+      vaultFingerprint: request.vaultFingerprint,
+      indexRevision: revision,
+      hits: ranked.slice(0, 10).map(metadata),
+    };
+  return {
+    purpose: "agent_context",
+    vaultFingerprint: request.vaultFingerprint,
+    indexRevision: revision,
+    hits: ranked.slice(0, 10).flatMap((item) => {
+      const body = store.readAllowedContent(item.note.path, request.vaultFingerprint);
+      return body === null ? [] : [{ ...metadata(item), text: Array.from(body).slice(0, 1200).join("") }];
+    }),
+  };
+}
 
 const firstParagraph = (body: string): string =>
   body

@@ -1,4 +1,4 @@
-{"id": "ret-001", "query": "Почему мы решили держать Personal Vault отдельно от кода?", "expected_ids": ["dec_01M4K11NG0VEB0JAS3F501V9XB"], "metric": "recall@5"}
+{"id": "ret-001", "query": "Почему мы решили держать Personal Vault отдельно от кода?", "expected_ids": ["dec_01M4K11NG0VEB0JAS3F501V9XB"], "metric": "decision_why_recall@5"}
 {"id": "ret-002", "query": "Какой проект сейчас строит Ideomy?", "expected_ids": ["prj_01M4K11NG0XKJFG87XA758PBH3"], "metric": "recall@5"}
 {"id": "ret-003", "query": "Что я знаю о выборе primary area?", "expected_ids": ["kn_01M4K11NG0P7VQFQ3Z69M6XACE"], "metric": "recall@5"}
 {"id": "ret-004", "query": "Кто участвовал в архитектурном review?", "expected_ids": ["per_01M4K11NG0BHW6NYV9R5N8TWXH", "mtg_01M4K11NG0CMKA33ZTAR8PR3R3"], "metric": "recall@5"}
@@ -9,3 +9,12 @@
 {"id": "ret-009", "kind": "project_pack", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "expected_ids": ["dec_01M4K11NG0VEB0JAS3F501V9XB", "kn_01M4K11NG0P7VQFQ3Z69M6XACE"], "excluded_ids": ["kn_01M4K11NG0FR85QN968FX7V14W", "per_01M4K11NG0BHW6NYV9R5N8TWXH"], "metric": "key_item_recall@10"}
 {"id": "ret-010", "kind": "project_pack_source_journal", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "expected_ids": ["src_01M4K11NG0NDHTPH14Y312K8SW", "jrn_01M4K11NG0GV3XSBBZN111YPW5"], "metric": "key_item_recall@10"}
 {"id": "ret-011", "kind": "project_pack_graph_bound", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "eligible_neighbors": 60, "restricted_neighbors": 5, "expected_relevant_count": 7, "expected_omitted_count": 53, "metric": "bounded_omission_count"}
+{"id": "ret-012", "kind": "area_tiers", "query": "Ideomy", "area_id": "area_01M4K11NG0RJRCDC6QME082AG4", "expected_primary_path": "10 Projects/Build Ideomy v1.md", "expected_related_path": "20 Knowledge/Related Ideomy Note.md", "metric": "scope_policy"}
+{"id": "ret-013", "kind": "unmanaged_scope", "query": "areaunmanagedprobe", "area_id": "area_01M4K11NG0RJRCDC6QME082AG4", "expected_path": "20 Knowledge/Technology & AI Unmanaged.md", "metric": "scope_policy"}
+{"id": "ret-014", "kind": "raw_source_classification", "query": "rawsourceprobe", "confirmed_inbox_root": "01 Inbox", "expected_kinds": {"Web Outside/Synthetic Clip.md": "raw_web_capture", "01 Inbox/Manual Capture.md": "raw_inbox", "Loose Inbox/Unconfirmed Capture.md": "unmanaged", "21 Sources/Processed Probe.md": "processed_source"}, "excluded_paths": ["21 Sources/Unprocessed Probe.md"], "metric": "source_policy"}
+{"id": "ret-015", "kind": "unicode_lexical", "query": "квантовая стратегия", "fallback_query": "квантовая неизвестно", "authority_query": "стратегия", "expected_first_path": "20 Knowledge/Квантовая стратегия.md", "metric": "lexical_policy"}
+{"id": "ret-016", "kind": "purpose_privacy", "query": "privacyprobe", "expected_local_paths": ["20 Knowledge/Private Local Only.md", "20 Knowledge/Unmanaged Existing Note.md"], "expected_agent_path": "20 Knowledge/Primary Area Is Determined by Intent.md", "excluded_path": "40 Decisions/Denied Privacy Probe.md", "metric": "privacy_policy"}
+{"id": "ret-017", "kind": "vault_revision", "query": "Ideomy", "metric": "vault_isolation"}
+{"id": "ret-018", "kind": "policy_fallback", "query": "privacyprobe denied", "expected_path": "20 Knowledge/Primary Area Is Determined by Intent.md", "excluded_path": "40 Decisions/Denied Privacy Probe.md", "metric": "lexical_policy"}
+{"id": "ret-019", "kind": "invalid_area", "query": "Ideomy", "metric": "scope_policy"}
+{"id": "ret-020", "kind": "authority_prior", "query": "rankingprobe", "confirmed_inbox_root": "01 Inbox", "expected_paths": ["21 Sources/Processed Probe.md", "60 Journal/Daily/2026-10-06.md", "01 Inbox/Manual Capture.md"], "metric": "ranking_policy"}

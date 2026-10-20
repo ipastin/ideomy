@@ -40,7 +40,7 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     const before = readFileSync(path.join(f.vaultRoot, project));
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(2);
+      expect(store.version).toBe(3);
       const first = store.rebuild(f.input);
       expect(store.rebuild(f.input)).toBe(first);
       expect(inspectIndex(f.databasePath, first)).toBe("current");
@@ -73,12 +73,12 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     expect(readFileSync(path.join(f.vaultRoot, project))).toEqual(before);
     const reopened = new BetterSqliteStore(f.databasePath);
     try {
-      expect(reopened.version).toBe(2);
+      expect(reopened.version).toBe(3);
     } finally {
       reopened.close();
     }
     const future = new Database(f.databasePath);
-    future.pragma("user_version = 3");
+    future.pragma("user_version = 4");
     future.close();
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-002" }));
   } finally {
@@ -142,7 +142,7 @@ it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", (
     writeFileSync(collision, "# Synthetic unmanaged\n");
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(2);
+      expect(store.version).toBe(3);
       const revision = store.rebuild(f.input);
       expect(inspectIndex(f.databasePath, revision)).toBe("current");
       expect(store.edges().some((edge) => edge.kind === "wiki" && edge.sourcePath === project)).toBe(false);
