@@ -208,6 +208,12 @@ it("resolves at the first matching tier before type checks and includes unmanage
       writeFileSync(unmanagedFile, '---\naliases: ["Shared alias"]\n---\n# Synthetic unmanaged\n');
       store.rebuild(f.input);
       expect(relation()).toEqual({ target_id: null, resolution: "ambiguous" });
+
+      for (const aliases of ['"Shared alias extra"', "{ user: value }"]) {
+        writeFileSync(unmanagedFile, `---\naliases: ${aliases}\n---\n# Synthetic unmanaged\n`);
+        store.rebuild(f.input);
+        expect(relation()).toMatchObject({ resolution: "resolved", target_id: expect.stringMatching(/^area_/) });
+      }
     } finally {
       store.close();
     }

@@ -102,7 +102,10 @@ function resolveTarget(
   const candidates = [
     entries.filter((entry) => entry.path.replace(/\.md$/i, "") === reference),
     entries.filter((entry) => path.basename(entry.path, ".md") === reference || title(entry) === reference),
-    entries.filter((entry) => (entry.note.logicalProperties?.aliases as unknown[] | undefined)?.includes(reference)),
+    entries.filter((entry) => {
+      const aliases = entry.note.logicalProperties?.aliases;
+      return Array.isArray(aliases) && aliases.includes(reference);
+    }),
   ];
   for (const matches of candidates) {
     if (!matches.length) continue;
