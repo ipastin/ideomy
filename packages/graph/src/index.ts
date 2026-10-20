@@ -4,6 +4,7 @@ export type GraphTraversal = {
   root: IndexedNote;
   nodes: IndexedNote[];
   edges: IndexedEdge[];
+  omittedNodeCount: number;
   truncated: boolean;
 };
 
@@ -21,7 +22,11 @@ export class GraphError extends Error {
   }
 }
 
-export function traverseProject(store: SqliteStore, projectId: string): GraphTraversal {
+export function traverseProject(
+  store: SqliteStore,
+  projectId: string,
+  include?: (note: IndexedNote) => boolean,
+): GraphTraversal {
   const notes = store.notes();
   const root = notes.find((note) => note.entityId === projectId && note.type === "project");
   if (!root) throw new GraphError("GRAPH-001", "Project ID is missing from the index.");
@@ -40,6 +45,7 @@ export function traverseProject(store: SqliteStore, projectId: string): GraphTra
   const included = new Map([[root.path, root]]);
   const edges: IndexedEdge[] = [];
   const seen = new Set<string>();
+  const omitted = new Set<string>();
   let truncated = false;
   for (const edge of connected) {
     const key = `${edge.kind}\0${edge.sourcePath}\0${edge.targetPath}\0${edge.property ?? ""}`;
@@ -48,12 +54,15 @@ export function traverseProject(store: SqliteStore, projectId: string): GraphTra
     const otherPath = edge.sourcePath === root.path ? edge.targetPath : edge.sourcePath;
     const other = byPath.get(otherPath);
     if (!other) continue;
+    if (otherPath !== root.path && include && !include(other)) continue;
     if (edges.length >= maxEdges || (!included.has(otherPath) && included.size >= maxNodes)) {
       truncated = true;
+      if (!included.has(otherPath)) omitted.add(otherPath);
       continue;
     }
     included.set(otherPath, other);
+    omitted.delete(otherPath);
     edges.push(edge);
   }
-  return { root, nodes: [...included.values()], edges, truncated };
+  return { root, nodes: [...included.values()], edges, omittedNodeCount: omitted.size, truncated };
 }

@@ -3,8 +3,8 @@
   "version": "0.11.3",
   "system_spec_version": "1.11.3",
   "created": "06-10-26 16-40-00",
-  "updated": "20-10-26 17-55-18",
-  "commit": "feat(retrieval): add bounded project context pack",
+  "updated": "20-10-26 18-35-49",
+  "commit": "fix(retrieval): preserve eligible context at graph bounds",
   "numbered_documents": 23,
   "files": [
     {
@@ -229,8 +229,8 @@
     },
     {
       "path": "evals/golden/retrieval.jsonl",
-      "bytes": 1661,
-      "sha256": "0b5cd84edbfe500ca6d7391667f2b247f1458c14868a4530124bedd3dd47fc48"
+      "bytes": 2135,
+      "sha256": "ed28bad8dbacbe75460dac11b7cee5228b277ff1c9a24bdc951519f8c50bc8e8"
     },
     {
       "path": "evals/golden/security.jsonl",

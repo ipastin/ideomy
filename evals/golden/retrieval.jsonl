@@ -7,3 +7,5 @@
 {"id": "ret-007", "kind": "exact_lookup", "query": "BUILD IDEOMY V1", "expected_ids": ["prj_01M4K11NG0XKJFG87XA758PBH3"], "metric": "exact_accuracy"}
 {"id": "ret-008", "kind": "exact_lookup", "query": "TECHNOLOGY & AI", "expected_ids": ["area_01M4K11NG0RJRCDC6QME082AG4"], "metric": "exact_accuracy"}
 {"id": "ret-009", "kind": "project_pack", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "expected_ids": ["dec_01M4K11NG0VEB0JAS3F501V9XB", "kn_01M4K11NG0P7VQFQ3Z69M6XACE"], "excluded_ids": ["kn_01M4K11NG0FR85QN968FX7V14W", "per_01M4K11NG0BHW6NYV9R5N8TWXH"], "metric": "key_item_recall@10"}
+{"id": "ret-010", "kind": "project_pack_source_journal", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "expected_ids": ["src_01M4K11NG0NDHTPH14Y312K8SW", "jrn_01M4K11NG0GV3XSBBZN111YPW5"], "metric": "key_item_recall@10"}
+{"id": "ret-011", "kind": "project_pack_graph_bound", "project_id": "prj_01M4K11NG0XKJFG87XA758PBH3", "eligible_neighbors": 60, "restricted_neighbors": 5, "expected_relevant_count": 7, "expected_omitted_count": 53, "metric": "bounded_omission_count"}

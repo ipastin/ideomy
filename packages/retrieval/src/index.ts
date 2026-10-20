@@ -18,6 +18,7 @@ export const projectSections = [
   "constraints",
   "openQuestions",
 ] as const;
+const candidateSections = ["recentDecisions", "relevantKnowledge", "recentActivity", "people"] as const;
 
 export type ProjectContextPack = {
   kind: "project";
@@ -47,6 +48,17 @@ export class RetrievalError extends Error {
 
 const allowed = (note: IndexedNote): boolean =>
   note.agentAccess === "allowed" && ["public", "internal", "private"].includes(note.sensitivity);
+
+const candidateSection = (note: IndexedNote): (typeof candidateSections)[number] | null =>
+  note.type === "decision" && note.status === "accepted"
+    ? "recentDecisions"
+    : note.type === "knowledge" || note.type === "source"
+      ? "relevantKnowledge"
+      : note.type === "person"
+        ? "people"
+        : ["meeting", "event", "record", "journal"].includes(note.type ?? "")
+          ? "recentActivity"
+          : null;
 
 const authority = (note: IndexedNote): number => {
   if (note.type === "decision" && note.status === "accepted") return 8;
@@ -87,7 +99,7 @@ export function buildProjectContextPack(
     throw new RetrievalError("RETRIEVAL-001", "Wrong Vault fingerprint.");
   if (!revision || revision !== access.expectedRevision)
     throw new RetrievalError("RETRIEVAL-002", "Index revision is missing or stale.");
-  const graph = traverseProject(store, projectId);
+  const graph = traverseProject(store, projectId, (note) => allowed(note) && candidateSection(note) !== null);
   if (!allowed(graph.root)) throw new RetrievalError("RETRIEVAL-003", "Project is not eligible for agent context.");
   const sections: ProjectContextPack["sections"] = {
     projectSummary: [],
@@ -102,7 +114,7 @@ export function buildProjectContextPack(
   };
   let count = 0;
   let characters = 0;
-  let omittedCount = 0;
+  let omittedCount = graph.omittedNodeCount;
   let truncated = graph.truncated;
   const add = (section: keyof typeof sections, note: IndexedNote, text: string): void => {
     const value = text.trim();
@@ -134,24 +146,14 @@ export function buildProjectContextPack(
   add("openQuestions", graph.root, firstParagraph(headedSection(rootBody, "Open Questions")));
 
   const lexical = new Set(store.search(graph.root.title).map((hit) => hit.path));
-  const candidateSections = ["recentDecisions", "relevantKnowledge", "recentActivity", "people"] as const;
   const groups: Record<(typeof candidateSections)[number], IndexedNote[]> = {
     recentDecisions: [],
     relevantKnowledge: [],
     recentActivity: [],
     people: [],
   };
-  for (const note of graph.nodes.filter((item) => item.path !== graph.root.path && allowed(item))) {
-    const section =
-      note.type === "decision" && note.status === "accepted"
-        ? "recentDecisions"
-        : note.type === "knowledge"
-          ? "relevantKnowledge"
-          : note.type === "person"
-            ? "people"
-            : ["meeting", "event", "record"].includes(note.type ?? "")
-              ? "recentActivity"
-              : null;
+  for (const note of graph.nodes.filter((item) => item.path !== graph.root.path)) {
+    const section = candidateSection(note);
     if (section) groups[section].push(note);
   }
   for (const section of candidateSections)
