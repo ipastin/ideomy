@@ -1,18 +1,18 @@
 ---
 title: "Vault I/O, Identity & Schema Contract"
 created: "10-10-26 15-41-48"
-updated: "12-10-26 16-30-30"
-version: "0.11.0"
+updated: "20-10-26 16-03-00"
+version: "0.11.2"
 status: "accepted"
-commit: "refactor(brand): adopt Ideomy canonical namespace"
+commit: "docs(spec): define fail-closed relation resolution"
 ---
 
 # Vault I/O, Identity & Schema Contract
 
-Created: 10-10-26 15-41-48  
-Updated: 12-10-26 16-30-30  
-Version: 0.11.0  
-Change: `refactor(brand): adopt Ideomy canonical namespace`
+Created: 10-10-26 15-41-48
+Updated: 20-10-26 16-03-00
+Version: 0.11.2
+Change: `docs(spec): define fail-closed relation resolution`
 
 ## 1. Purpose
 
@@ -168,6 +168,8 @@ exact path
 ```
 
 Managed relation edges store resolved stable IDs in derived index. Ambiguity is never silently resolved by semantic similarity for canonical relations.
+
+At each tier, find matching managed and unmanaged Vault notes before applying the allowed target type from `schemas/relationships.json`. More than one distinct match is ambiguous even when only one has the allowed type. A unique unmanaged or wrong-type match remains unresolved and does not fall through to a lower tier. Only a unique managed Entity of the allowed type yields an ID-based edge. Unmanaged `aliases` participate when their frontmatter provides a list containing the reference; this does not adopt or validate them as Entities. See ADR-145.
 
 ## 11. Rename / move / delete
 

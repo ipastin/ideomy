@@ -1,22 +1,28 @@
 ---
 title: "Ideomy System Specification"
 created: "06-10-26 16-40-00"
-updated: "15-10-26 14-53-19"
-version: "1.11.1"
+updated: "20-10-26 16-03-00"
+version: "1.11.2"
 status: "accepted"
-commit: "docs(bootstrap): separate Plugin P0 acceptance"
+commit: "docs(spec): define fail-closed relation resolution"
 ---
 
-# Ideomy System Specification v1.11.1
+# Ideomy System Specification v1.11.2
 
-Created: 06-10-26 16-40-00  
-Updated: 15-10-26 14-53-19  
-Version: 1.11.1  
-Change: `docs(bootstrap): separate Plugin P0 acceptance`
+Created: 06-10-26 16-40-00
+Updated: 20-10-26 16-03-00
+Version: 1.11.2
+Change: `docs(spec): define fail-closed relation resolution`
 
 ## Generation note
 
 This consolidated specification is generated from current numbered Specification Pack documents. Machine-readable schemas/contracts/templates/fixtures/evals ship alongside the Pack and are normative where referenced. Historical superseded decisions remain only in ADR/Changelog.
+
+## v1.11.2 — 20-10-26
+
+- `docs(spec): define fail-closed relation resolution`
+- ADR-145 fixes relation tier/type ordering, includes unmanaged ambiguity, and invalidates old derived edges.
+- The Pack index now includes the previously accepted ADR-144.
 
 ## v1.11.1 — 15-10-26
 
@@ -36,7 +42,7 @@ This consolidated specification is generated from current numbered Specification
 
 ---
 
-<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
+<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md -->
 
 # Ideomy — Project Specification Pack
 
@@ -60,6 +66,8 @@ product intent
 ```
 
 ## 2. Implementation-readiness status
+
+`v0.11.2` accepts ADR-145: canonical relation links resolve each tier across managed and unmanaged notes before target-type filtering. Ambiguous or wrong-type matches fail closed; the derived index revision invalidates earlier relation edges. The Pack index now includes the separately accepted ADR-144.
 
 `v0.11.1` accepts ADR-143: Plugin P0 integration may be accepted at M0.4 on a real macOS Obsidian/Core smoke test. Full Bootstrap Foundation, including an initial deterministic index and `doctor Healthy`, remains an M0.5 acceptance gate. The existing package, protocol, privacy and hard eval contracts are unchanged.
 
@@ -4520,7 +4528,7 @@ web_capture_policy_override_failures = 0
 ```
 ---
 
-<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md -->
+<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md -->
 
 # Architecture Decision Record Index
 
@@ -4528,7 +4536,7 @@ web_capture_policy_override_failures = 0
 
 ## Status
 
-All decisions below are current for Ideomy specification pack v0.3.0 unless explicitly marked Superseded. Changes create a superseding ADR/decision; history is not rewritten silently.
+All decisions below are current for Ideomy specification pack v0.11.2 unless explicitly marked Superseded. Changes create a superseding ADR/decision; history is not rewritten silently.
 
 ## Decisions
 
@@ -5105,6 +5113,12 @@ Implementation convenience alone is not sufficient reason to silently violate an
 
 ### ADR-143
 **Accepted:** M0.4 Plugin P0 integration is independently installable and reviewable before full Bootstrap Foundation acceptance. M0.5 completes the existing Foundation minimum index, `doctor Healthy` and recovery gates. This narrowly supersedes ADR-074's attribution of the first installable slice; its full Foundation requirements remain accepted. See `docs/adr/ADR-143_PLUGIN_P0_ACCEPTANCE`.
+
+### ADR-144
+**Accepted:** AUTO body markers are recognized only as standalone top-level Markdown HTML comments. See `docs/adr/ADR-144_AUTO_MARKER_CONTEXT`.
+
+### ADR-145
+**Accepted:** Canonical relation links resolve by exact path, basename/title, then alias across managed and unmanaged notes before target-type filtering. Ambiguous and wrong-type matches fail closed at their first matching tier; old derived edges are invalidated. See `docs/adr/ADR-145_RELATION_LINK_RESOLUTION`.
 ---
 
 <!-- SOURCE: 14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
@@ -9062,7 +9076,7 @@ The Obsidian Plugin is not responsible for browser extraction. V1 browser captur
 Plugin may expose Inbox/processing status and actions after the capture reaches the Vault. It must not duplicate Web Clipper browser-extension functionality.
 ---
 
-<!-- SOURCE: 20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md -->
+<!-- SOURCE: 20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-20-10-26_16-03-00__v0.11.2.md -->
 
 # Vault I/O, Identity & Schema Contract
 
@@ -9221,6 +9235,8 @@ exact path
 ```
 
 Managed relation edges store resolved stable IDs in derived index. Ambiguity is never silently resolved by semantic similarity for canonical relations.
+
+At each tier, find matching managed and unmanaged Vault notes before applying the allowed target type from `schemas/relationships.json`. More than one distinct match is ambiguous even when only one has the allowed type. A unique unmanaged or wrong-type match remains unresolved and does not fall through to a lower tier. Only a unique managed Entity of the allowed type yields an ID-based edge. Unmanaged `aliases` participate when their frontmatter provides a list containing the reference; this does not adopt or validate them as Entities. See ADR-145.
 
 ## 11. Rename / move / delete
 

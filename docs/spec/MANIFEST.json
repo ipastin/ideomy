@@ -1,16 +1,16 @@
 {
   "name": "Ideomy Project Specification Pack",
-  "version": "0.11.1",
-  "system_spec_version": "1.11.1",
+  "version": "0.11.2",
+  "system_spec_version": "1.11.2",
   "created": "06-10-26 16-40-00",
-  "updated": "15-10-26 14-53-19",
-  "commit": "docs(bootstrap): separate Plugin P0 acceptance",
+  "updated": "20-10-26 16-03-00",
+  "commit": "docs(spec): define fail-closed relation resolution",
   "numbered_documents": 23,
   "files": [
     {
-      "path": "00_README__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
-      "bytes": 8589,
-      "sha256": "f1d52546a92bfcafe5c333109472d56220bccd039849a67c66f581d62067d824"
+      "path": "00_README__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md",
+      "bytes": 8896,
+      "sha256": "fbb1f64547ff099f8ddbcd4776ef54192264b3e61c6da14e76812cff2df3e9be"
     },
     {
       "path": "01_PRODUCT__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -73,9 +73,9 @@
       "sha256": "e74820a6af86c810382c84f0fbab327a67c7ba060d76a896dfca249a084f6588"
     },
     {
-      "path": "13_ADR__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md",
-      "bytes": 25923,
-      "sha256": "7196e7804a34f48fcce8b776e885c40bcc0904d8ecaf6afb110deb5cfdabf7cf"
+      "path": "13_ADR__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md",
+      "bytes": 26409,
+      "sha256": "edbab00fc9ba4b9fd96358ca2a6ebb102cb581cc474469aa46c80004f413a760"
     },
     {
       "path": "14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -108,9 +108,9 @@
       "sha256": "025378550f083db5bea1fce39f29594ee7b4b9442eb088210b201d3b56b1a2a1"
     },
     {
-      "path": "20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
-      "bytes": 10465,
-      "sha256": "dad8795fa3c0cf03c75974d4d192a07e976e5a9cbd23620807b8081fccfbe058"
+      "path": "20_VAULT_IO_AND_SCHEMA__created-10-10-26_15-41-48__updated-20-10-26_16-03-00__v0.11.2.md",
+      "bytes": 11017,
+      "sha256": "b43a72d47fe87cfc6e679d07268d09f2779877476aed2943deddc111de634453"
     },
     {
       "path": "21_CORE_PROTOCOL__created-10-10-26_15-41-48__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -189,18 +189,18 @@
     },
     {
       "path": "contracts/protocol/v1/handshake-response.schema.json",
-      "bytes": 1124,
-      "sha256": "5661058303a38f8fc180eb6113473b85925e9b45d262fa2682a262afb93212c1"
+      "bytes": 1229,
+      "sha256": "01d4bac60388e37b299c42952c19487e0686ce4500fc82fdaeb89672adf24ae4"
     },
     {
       "path": "contracts/protocol/v1/operation.schema.json",
-      "bytes": 965,
-      "sha256": "eed9a1460055045561c6363ecbaffa9640685bbf6572e48246af57e015dccec2"
+      "bytes": 1175,
+      "sha256": "973842d147fcc9d126ea8d70fcecd6212ddffe29f27092b0c3fd377f5c725c8a"
     },
     {
       "path": "contracts/protocol/v1/review-item.schema.json",
-      "bytes": 1002,
-      "sha256": "1b4b9eebb1d04419254fabef0e3469198adb556f78b837c47fee3699660c097e"
+      "bytes": 1107,
+      "sha256": "df982d41450de41fe233c55095f1c7a7b333a559bd63439b59bc5581273d817c"
     },
     {
       "path": "contracts/protocol/v1/status.schema.json",
@@ -433,9 +433,9 @@
       "sha256": "66541b207498b96658e1ff9126942504ef5b3414802cae081bbc0c70d09296bd"
     },
     {
-      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v1.11.1.md",
-      "bytes": 265323,
-      "sha256": "a800c874546248856ee6460899cb2c8cafcab6d9c8d29d1a2cfb1a40d2778a91"
+      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v1.11.2.md",
+      "bytes": 266924,
+      "sha256": "11cfa9975ccf16e906bef0c909fdef4d21c04e0fc0e380dfe3e0fe276aee58c9"
     },
     {
       "path": "schemas/README.md",
@@ -444,83 +444,83 @@
     },
     {
       "path": "schemas/base.schema.json",
-      "bytes": 3459,
-      "sha256": "429cdd24d1005fbda0174ba5ff0e65ed0e4a8a5c12e31b564ebe419c3a386f22"
+      "bytes": 3669,
+      "sha256": "0de4e48fb8b8edf923d17822d3f2506911d5c18e882cac2df58aac734e2a1302"
     },
     {
       "path": "schemas/entities/area.schema.json",
-      "bytes": 1185,
-      "sha256": "9dc005d35107ccad2401f331e6e6314257268a24240bb57b6c8a3ae1849e484d"
+      "bytes": 1242,
+      "sha256": "56ccafe1be17206c884b7710fbee19f134db978496866bb3cacc270d74dd970a"
     },
     {
       "path": "schemas/entities/asset.schema.json",
-      "bytes": 1574,
-      "sha256": "758bbacffb9322225c7c3ca8cc43c612135acc9df1c0436270a793ab460a27d2"
+      "bytes": 1630,
+      "sha256": "b6f11d5511b733bdeb771d9a67a8c66e7843d1c6c7a27d1fb630c676b349663f"
     },
     {
       "path": "schemas/entities/decision.schema.json",
-      "bytes": 1457,
-      "sha256": "d75e7452269887e2c02e3f617f7f3e461c857eb7a5a9c320c7cd67269688aaa8"
+      "bytes": 1513,
+      "sha256": "cdb2c9a48dd52d4664883797c6f8f0460a429da2798082ed42903a22abec7274"
     },
     {
       "path": "schemas/entities/event.schema.json",
-      "bytes": 905,
-      "sha256": "ce9494908e36b644461cd438f00f82cd0a243b459e65c2b89c57ce21a2703b9b"
+      "bytes": 961,
+      "sha256": "1f2a658c4e56d65cd4f377e0fb09f790b77f20a720f131475b6dedc760bad77e"
     },
     {
       "path": "schemas/entities/goal.schema.json",
-      "bytes": 1167,
-      "sha256": "63a68dbec5e0285075db28c9d68bae5c2387c25b29682b711dfcf590cbe86a50"
+      "bytes": 1223,
+      "sha256": "74e41093ad8740691f90a3f4c6428797df2bceda76985a7b9104d518a6e14324"
     },
     {
       "path": "schemas/entities/journal.schema.json",
-      "bytes": 1432,
-      "sha256": "0a9ee698b24a53567be08b7c62e5041d23632d2d5a61cffd95c3ea9a79e5da56"
+      "bytes": 1488,
+      "sha256": "39fb592fbd02a38de163102e548002df4514f5a96bcd4964c0d14ed310637fb7"
     },
     {
       "path": "schemas/entities/knowledge.schema.json",
-      "bytes": 1021,
-      "sha256": "01231ea9fd2eed58da8ae9e69aa5b5bf78a7ecd179cf4c8b407523711e99c9d9"
+      "bytes": 1076,
+      "sha256": "9237ff5b51c59406b5ad06ab66fbfad9d46c80431befb9d1be83ff0143a0ee55"
     },
     {
       "path": "schemas/entities/meeting.schema.json",
-      "bytes": 1245,
-      "sha256": "f2eca84a64a768ca7696112dc7fa1af6bc3112bde64835e9469d337a698e062f"
+      "bytes": 1301,
+      "sha256": "de78e39391158c5ee29c768bbd6059f0abff87bdc34688a98c8c65eb3fe5ce39"
     },
     {
       "path": "schemas/entities/organization.schema.json",
-      "bytes": 1055,
-      "sha256": "844d3a7a3bc4a9b4f7343fe1df63118f06a1e72328132cab22cc678c8dab9510"
+      "bytes": 1111,
+      "sha256": "f76b014f3f9f38c085442d9e4a7c7fc700c4089c09e7b59b5675000416de0754"
     },
     {
       "path": "schemas/entities/person.schema.json",
-      "bytes": 1197,
-      "sha256": "afd1d8ebca6888df052ef080166ad3f5a10f95e84070075f90d3d08821b2dea5"
+      "bytes": 1253,
+      "sha256": "eda9a8e3dfe68d754c9146bf0c0eac16976e43d17958d70035e27c2b04d143a4"
     },
     {
       "path": "schemas/entities/place.schema.json",
-      "bytes": 1106,
-      "sha256": "1257810858c78f38e02f54a20cacb843ded45bb012fab5c320a49d2ce94dad27"
+      "bytes": 1162,
+      "sha256": "5b957ced0cc9aaf99e6cd9a568adbc046bf386a49d3278489d3c9974deee6f4f"
     },
     {
       "path": "schemas/entities/project.schema.json",
-      "bytes": 1592,
-      "sha256": "19de21a859b185b49d1ec55ff74b7cdc98338d4177fd198acc691b4ca0484efa"
+      "bytes": 1648,
+      "sha256": "dd8cf0144cfb7603dbb185bca47ee46a46531018a2f0e690130a57e54e5753cd"
     },
     {
       "path": "schemas/entities/record.schema.json",
-      "bytes": 1000,
-      "sha256": "e586aa43b8c78359d3b568535cc5dd0250be804656905957d291d5a6933da224"
+      "bytes": 1056,
+      "sha256": "d376b6f07166bd98f5b4957e7e2fcbab8c19c6848cc790e8c1d244bae1d2d212"
     },
     {
       "path": "schemas/entities/source.schema.json",
-      "bytes": 2094,
-      "sha256": "b036472166755497b6a5a395572cf599586aa30989800f6e8e16997cd3916de2"
+      "bytes": 2150,
+      "sha256": "ed186ca06911d02efe9d6eed24b5d4840d623ce06c84015d10482a59af97a3b5"
     },
     {
       "path": "schemas/entities/system.schema.json",
-      "bytes": 1190,
-      "sha256": "f321da515a732c30af7cfa5501f7db9e6547e40991232dfdfb6907f95146bb3b"
+      "bytes": 1246,
+      "sha256": "4f2a3ee4dc9546d84715ba0e600c109f4e7d5a7cedbd9b83ffa9a42af539cc30"
     },
     {
       "path": "schemas/registry.json",
