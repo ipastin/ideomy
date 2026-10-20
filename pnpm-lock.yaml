@@ -287,7 +287,11 @@ importers:
         specifier: workspace:*
         version: link:../contracts
 
-  packages/graph: {}
+  packages/graph:
+    dependencies:
+      '@ideomy/index':
+        specifier: workspace:*
+        version: link:../index
 
   packages/index:
     dependencies:
@@ -306,7 +310,14 @@ importers:
 
   packages/platform: {}
 
-  packages/retrieval: {}
+  packages/retrieval:
+    dependencies:
+      '@ideomy/graph':
+        specifier: workspace:*
+        version: link:../graph
+      '@ideomy/index':
+        specifier: workspace:*
+        version: link:../index
 
   packages/schema:
     dependencies:

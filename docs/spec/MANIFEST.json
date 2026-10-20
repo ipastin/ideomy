@@ -1,16 +1,16 @@
 {
   "name": "Ideomy Project Specification Pack",
-  "version": "0.11.2",
-  "system_spec_version": "1.11.2",
+  "version": "0.11.3",
+  "system_spec_version": "1.11.3",
   "created": "06-10-26 16-40-00",
-  "updated": "20-10-26 16-21-25",
-  "commit": "fix(spec): separate ADR entry from section boundary",
+  "updated": "20-10-26 18-35-49",
+  "commit": "fix(retrieval): preserve eligible context at graph bounds",
   "numbered_documents": 23,
   "files": [
     {
-      "path": "00_README__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md",
-      "bytes": 8896,
-      "sha256": "fbb1f64547ff099f8ddbcd4776ef54192264b3e61c6da14e76812cff2df3e9be"
+      "path": "00_README__created-06-10-26_16-40-00__updated-20-10-26_17-55-18__v0.11.3.md",
+      "bytes": 9093,
+      "sha256": "76e00f14b6aa014d81725d97f970813b0417ede15addd8d8903f996514ea769b"
     },
     {
       "path": "01_PRODUCT__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -73,9 +73,9 @@
       "sha256": "e74820a6af86c810382c84f0fbab327a67c7ba060d76a896dfca249a084f6588"
     },
     {
-      "path": "13_ADR__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md",
-      "bytes": 26409,
-      "sha256": "edbab00fc9ba4b9fd96358ca2a6ebb102cb581cc474469aa46c80004f413a760"
+      "path": "13_ADR__created-06-10-26_16-40-00__updated-20-10-26_17-55-18__v0.11.3.md",
+      "bytes": 26696,
+      "sha256": "ae36b54bbac80d0075198876a6869672e19db909bb2c0ebb541e7c65f3489b41"
     },
     {
       "path": "14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md",
@@ -229,8 +229,8 @@
     },
     {
       "path": "evals/golden/retrieval.jsonl",
-      "bytes": 1068,
-      "sha256": "85a4d148b7a3bf3c64dea813b35b68f97a21907b1d5d14f0dfdca42abc47fcc1"
+      "bytes": 2135,
+      "sha256": "ed28bad8dbacbe75460dac11b7cee5228b277ff1c9a24bdc951519f8c50bc8e8"
     },
     {
       "path": "evals/golden/security.jsonl",
@@ -244,8 +244,8 @@
     },
     {
       "path": "evals/thresholds.json",
-      "bytes": 954,
-      "sha256": "202d03ab9d7cc116c3781c89519da217dc87ca2b603ed18be2193fd026218ac9"
+      "bytes": 999,
+      "sha256": "f6ff2d9bf5526dce5af00ad7533c43a61a6968e20cfd19d89da26086c25945e1"
     },
     {
       "path": "fixtures/test-vault/00 System/Areas/Business & Entrepreneurship.md",
@@ -433,9 +433,9 @@
       "sha256": "66541b207498b96658e1ff9126942504ef5b3414802cae081bbc0c70d09296bd"
     },
     {
-      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-20-10-26_16-21-25__v1.11.2.md",
-      "bytes": 266927,
-      "sha256": "5f7a81b114cff536cc465ae0340e3842aed80cd2f4357ea45fb40c9407994933"
+      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-20-10-26_17-55-18__v1.11.3.md",
+      "bytes": 267641,
+      "sha256": "c864d25443c726542a940caa3df911f47e42c1088793b6fa706cdf297c934044"
     },
     {
       "path": "schemas/README.md",

@@ -5,6 +5,7 @@ import { hashRaw, scanVault } from "@ideomy/vault-io";
 import Database from "better-sqlite3";
 import { expect, it } from "vitest";
 import { BetterSqliteStore, indexFilename, indexRevision, inspectIndex, relationTargets } from "./index.ts";
+import { migrations } from "./migrations.ts";
 
 const fixtures = path.resolve(import.meta.dirname, "../../../fixtures/test-vault");
 const project = "10 Projects/Build Ideomy v1.md";
@@ -39,7 +40,7 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     const before = readFileSync(path.join(f.vaultRoot, project));
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(1);
+      expect(store.version).toBe(2);
       const first = store.rebuild(f.input);
       expect(store.rebuild(f.input)).toBe(first);
       expect(inspectIndex(f.databasePath, first)).toBe("current");
@@ -72,14 +73,95 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     expect(readFileSync(path.join(f.vaultRoot, project))).toEqual(before);
     const reopened = new BetterSqliteStore(f.databasePath);
     try {
-      expect(reopened.version).toBe(1);
+      expect(reopened.version).toBe(2);
     } finally {
       reopened.close();
     }
     const future = new Database(f.databasePath);
-    future.pragma("user_version = 2");
+    future.pragma("user_version = 3");
     future.close();
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-002" }));
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("looks up normalized names without hiding collisions and indexes resolved wikilinks", () => {
+  const f = syntheticVault();
+  try {
+    const projectFile = path.join(f.vaultRoot, project);
+    writeFileSync(projectFile, `${readFileSync(projectFile, "utf8")}\n[[Technology & AI]]\n[[Missing link]]\n`);
+    const areaFile = path.join(f.vaultRoot, area);
+    writeFileSync(
+      areaFile,
+      readFileSync(areaFile, "utf8").replace("status: active", 'status: active\naliases: ["Research alias"]'),
+    );
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      store.rebuild(f.input);
+      expect(store.lookupExact(projectId)).toMatchObject({ status: "found", note: { path: project } });
+      expect(store.lookupExact("BUILD IDEOMY V1")).toMatchObject({ status: "found", note: { path: project } });
+      expect(store.lookupExact("research alias")).toMatchObject({ status: "found", note: { path: area } });
+      writeFileSync(path.join(f.vaultRoot, "Café.md"), "# Café\n");
+      store.rebuild(f.input);
+      expect(store.lookupExact("CAFE\u0301")).toMatchObject({ status: "found", note: { path: "Café.md" } });
+      expect(store.lookupExact("missing")).toEqual({ status: "missing" });
+      expect(store.edges()).toContainEqual(
+        expect.objectContaining({ kind: "wiki", sourcePath: project, targetPath: area }),
+      );
+      const unmanaged = path.join(f.vaultRoot, "Other/Collision.md");
+      mkdirSync(path.dirname(unmanaged), { recursive: true });
+      writeFileSync(unmanaged, '---\naliases: ["Research alias"]\n---\n# Synthetic unmanaged\n');
+      store.rebuild(f.input);
+      expect(store.lookupExact("RESEARCH ALIAS")).toMatchObject({
+        status: "ambiguous",
+        candidates: [{ path: area }, { path: "Other/Collision.md" }],
+      });
+      expect(store.lookupExact(projectId)).toMatchObject({ status: "found", note: { path: project } });
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", () => {
+  const f = syntheticVault();
+  try {
+    mkdirSync(path.dirname(f.databasePath), { recursive: true });
+    const old = new Database(f.databasePath);
+    old.exec(migrations[0]);
+    old.pragma("user_version = 1");
+    old.close();
+    const projectFile = path.join(f.vaultRoot, project);
+    const original = readFileSync(projectFile, "utf8");
+    writeFileSync(projectFile, `${original}\n[[Technology & AI]]\n`);
+    const collision = path.join(f.vaultRoot, "Other/Technology & AI.md");
+    mkdirSync(path.dirname(collision), { recursive: true });
+    writeFileSync(collision, "# Synthetic unmanaged\n");
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      expect(store.version).toBe(2);
+      const revision = store.rebuild(f.input);
+      expect(inspectIndex(f.databasePath, revision)).toBe("current");
+      expect(store.edges().some((edge) => edge.kind === "wiki" && edge.sourcePath === project)).toBe(false);
+      const db = new Database(f.databasePath, { readonly: true });
+      try {
+        expect(db.prepare("SELECT resolution FROM wiki_links WHERE source_path = ?").get(project)).toEqual({
+          resolution: "ambiguous",
+        });
+      } finally {
+        db.close();
+      }
+      writeFileSync(projectFile, `${original}\n[[00 System/Areas/Technology & AI]]\n`);
+      store.rebuild(f.input);
+      expect(store.edges()).toContainEqual(
+        expect.objectContaining({ kind: "wiki", sourcePath: project, targetPath: area }),
+      );
+    } finally {
+      store.close();
+    }
   } finally {
     rmSync(f.directory, { recursive: true, force: true });
   }
