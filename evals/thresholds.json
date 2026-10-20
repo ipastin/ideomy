@@ -10,6 +10,7 @@
     "false_automatic_merge_count": 0
   },
   "quality_gates": {
+    "exact_entity_lookup_accuracy_min": 1.0,
     "classification_primary_area_accuracy_min": 0.92,
     "classification_type_accuracy_min": 0.95,
     "ambiguous_to_review_recall_min": 0.95,

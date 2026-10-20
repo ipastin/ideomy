@@ -29,4 +29,14 @@ export const migrations = [
      id TEXT PRIMARY KEY, state TEXT NOT NULL, journal_path TEXT NOT NULL,
      created_at TEXT NOT NULL
    );`,
+  `ALTER TABLE documents ADD COLUMN aliases TEXT NOT NULL DEFAULT '[]';
+   ALTER TABLE documents ADD COLUMN activity_at TEXT;
+   CREATE TABLE wiki_links (
+     source_path TEXT NOT NULL REFERENCES documents(path),
+     ordinal INTEGER NOT NULL, target_ref TEXT NOT NULL,
+     target_path TEXT REFERENCES documents(path), resolution TEXT NOT NULL,
+     PRIMARY KEY (source_path, ordinal)
+   );
+   CREATE INDEX relationships_target_id ON relationships(target_id);
+   CREATE INDEX wiki_links_target_path ON wiki_links(target_path);`,
 ] as const;

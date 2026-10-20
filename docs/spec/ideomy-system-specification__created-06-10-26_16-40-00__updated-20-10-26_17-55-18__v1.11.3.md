@@ -1,22 +1,27 @@
 ---
 title: "Ideomy System Specification"
 created: "06-10-26 16-40-00"
-updated: "20-10-26 16-21-25"
-version: "1.11.2"
+updated: "20-10-26 17-55-18"
+version: "1.11.3"
 status: "accepted"
-commit: "fix(spec): separate ADR entry from section boundary"
+commit: "feat(retrieval): add bounded project context pack"
 ---
 
-# Ideomy System Specification v1.11.2
+# Ideomy System Specification v1.11.3
 
 Created: 06-10-26 16-40-00
-Updated: 20-10-26 16-21-25
-Version: 1.11.2
-Change: `fix(spec): separate ADR entry from section boundary`
+Updated: 20-10-26 17-55-18
+Version: 1.11.3
+Change: `feat(retrieval): add bounded project context pack`
 
 ## Generation note
 
 This consolidated specification is generated from current numbered Specification Pack documents. Machine-readable schemas/contracts/templates/fixtures/evals ship alongside the Pack and are normative where referenced. Historical superseded decisions remain only in ADR/Changelog.
+
+## v1.11.3 — 20-10-26
+
+- `feat(retrieval): add bounded project context pack`
+- ADR-146 fixes the M1.1 package-level exact lookup, wiki graph and access-filtered Project Context Pack slice without Core endpoints or M1.2 writes.
 
 ## v1.11.2 — 20-10-26
 
@@ -42,7 +47,7 @@ This consolidated specification is generated from current numbered Specification
 
 ---
 
-<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md -->
+<!-- SOURCE: 00_README__created-06-10-26_16-40-00__updated-20-10-26_17-55-18__v0.11.3.md -->
 
 # Ideomy — Project Specification Pack
 
@@ -66,6 +71,8 @@ product intent
 ```
 
 ## 2. Implementation-readiness status
+
+`v0.11.3` accepts ADR-146 for the bounded M1.1 package-level exact lookup, graph traversal and Project Context Pack slice. It does not promote Core read endpoints or change M1.2 mutation semantics.
 
 `v0.11.2` accepts ADR-145: canonical relation links resolve each tier across managed and unmanaged notes before target-type filtering. Ambiguous or wrong-type matches fail closed; the derived index revision invalidates earlier relation edges. The Pack index now includes the separately accepted ADR-144.
 
@@ -4528,7 +4535,7 @@ web_capture_policy_override_failures = 0
 ```
 ---
 
-<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v0.11.2.md -->
+<!-- SOURCE: 13_ADR__created-06-10-26_16-40-00__updated-20-10-26_17-55-18__v0.11.3.md -->
 
 # Architecture Decision Record Index
 
@@ -4536,7 +4543,7 @@ web_capture_policy_override_failures = 0
 
 ## Status
 
-All decisions below are current for Ideomy specification pack v0.11.2 unless explicitly marked Superseded. Changes create a superseding ADR/decision; history is not rewritten silently.
+All decisions below are current for Ideomy specification pack v0.11.3 unless explicitly marked Superseded. Changes create a superseding ADR/decision; history is not rewritten silently.
 
 ## Decisions
 
@@ -5119,6 +5126,9 @@ Implementation convenience alone is not sufficient reason to silently violate an
 
 ### ADR-145
 **Accepted:** Canonical relation links resolve by exact path, basename/title, then alias across managed and unmanaged notes before target-type filtering. Ambiguous and wrong-type matches fail closed at their first matching tier; old derived edges are invalidated. See `docs/adr/ADR-145_RELATION_LINK_RESOLUTION`.
+
+### ADR-146
+**Accepted:** M1.1 exact user lookup, distinct wiki graph edges, bounded Project traversal and transient access-filtered Project Context Pack follow the package-level contract in `docs/adr/ADR-146_M11_GRAPH_RETRIEVAL`. Canonical relation semantics remain governed by ADR-145.
 
 ---
 
