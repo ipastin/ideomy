@@ -3,8 +3,8 @@
   "version": "0.11.2",
   "system_spec_version": "1.11.2",
   "created": "06-10-26 16-40-00",
-  "updated": "20-10-26 16-03-00",
-  "commit": "docs(spec): define fail-closed relation resolution",
+  "updated": "20-10-26 16-21-25",
+  "commit": "fix(spec): separate ADR entry from section boundary",
   "numbered_documents": 23,
   "files": [
     {
@@ -433,9 +433,9 @@
       "sha256": "66541b207498b96658e1ff9126942504ef5b3414802cae081bbc0c70d09296bd"
     },
     {
-      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-20-10-26_16-03-00__v1.11.2.md",
-      "bytes": 266924,
-      "sha256": "11cfa9975ccf16e906bef0c909fdef4d21c04e0fc0e380dfe3e0fe276aee58c9"
+      "path": "ideomy-system-specification__created-06-10-26_16-40-00__updated-20-10-26_16-21-25__v1.11.2.md",
+      "bytes": 266927,
+      "sha256": "5f7a81b114cff536cc465ae0340e3842aed80cd2f4357ea45fb40c9407994933"
     },
     {
       "path": "schemas/README.md",

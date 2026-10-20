@@ -1,18 +1,18 @@
 ---
 title: "Ideomy System Specification"
 created: "06-10-26 16-40-00"
-updated: "20-10-26 16-03-00"
+updated: "20-10-26 16-21-25"
 version: "1.11.2"
 status: "accepted"
-commit: "docs(spec): define fail-closed relation resolution"
+commit: "fix(spec): separate ADR entry from section boundary"
 ---
 
 # Ideomy System Specification v1.11.2
 
 Created: 06-10-26 16-40-00
-Updated: 20-10-26 16-03-00
+Updated: 20-10-26 16-21-25
 Version: 1.11.2
-Change: `docs(spec): define fail-closed relation resolution`
+Change: `fix(spec): separate ADR entry from section boundary`
 
 ## Generation note
 
@@ -5119,6 +5119,7 @@ Implementation convenience alone is not sufficient reason to silently violate an
 
 ### ADR-145
 **Accepted:** Canonical relation links resolve by exact path, basename/title, then alias across managed and unmanaged notes before target-type filtering. Ambiguous and wrong-type matches fail closed at their first matching tier; old derived edges are invalidated. See `docs/adr/ADR-145_RELATION_LINK_RESOLUTION`.
+
 ---
 
 <!-- SOURCE: 14_AGENTS__created-06-10-26_16-40-00__updated-12-10-26_16-30-30__v0.11.0.md -->
