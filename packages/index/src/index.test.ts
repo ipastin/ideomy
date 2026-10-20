@@ -238,6 +238,10 @@ it("reports an incomplete FTS schema instead of a current cached revision", () =
     db.exec("DROP TABLE fts_chunks");
     db.close();
     expect(inspectIndex(f.databasePath, revision)).toBe("invalid");
+    const wrongShape = new Database(f.databasePath);
+    wrongShape.exec("CREATE VIRTUAL TABLE fts_chunks USING fts5(title)");
+    wrongShape.close();
+    expect(inspectIndex(f.databasePath, revision)).toBe("invalid");
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-003" }));
   } finally {
     rmSync(f.directory, { recursive: true, force: true });

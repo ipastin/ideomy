@@ -31,11 +31,14 @@ const requiredTables = [
 function hasRequiredSchema(db: Database.Database): boolean {
   const rows = db.prepare("SELECT name, sql FROM sqlite_schema WHERE type = 'table'").all() as {
     name: string;
-    sql: string;
+    sql: string | null;
   }[];
   const tables = new Map(rows.map((row) => [row.name, row.sql]));
+  const ftsColumns = db.prepare("PRAGMA table_xinfo(fts_chunks)").all() as { name: string }[];
   return (
-    requiredTables.every((name) => tables.has(name)) && /^CREATE VIRTUAL TABLE/i.test(tables.get("fts_chunks") ?? "")
+    requiredTables.every((name) => tables.has(name)) &&
+    /^CREATE VIRTUAL TABLE[\s\S]*\bUSING\s+fts5\b/i.test(tables.get("fts_chunks") ?? "") &&
+    ["title", "content"].every((name) => ftsColumns.some((column) => column.name === name))
   );
 }
 
