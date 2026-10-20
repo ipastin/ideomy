@@ -16,8 +16,9 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import path from "node:path";
 import { Worker } from "node:worker_threads";
 import { type CoreDiscovery, protocolSchemas } from "@ideomy/contracts";
+import { indexFilename } from "@ideomy/index";
 import { readCliAdminSecret, readMachineLocalFile } from "@ideomy/platform";
-import { inspectVault } from "./vault-health.ts";
+import { type inspectVault, synchronizeVaultIndex } from "./vault-health.ts";
 
 type ClientType = "plugin" | "cli";
 type PairedClient = {
@@ -183,19 +184,7 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
       watchFailed = true;
     }
   }
-  const initialVault = inspectVault(options);
-  if (initialVault.manifest !== null && initialVault.index !== "current") {
-    try {
-      writePrivateFile(options.stateDirectory, "bootstrap-index.json", initialVault.manifest);
-    } catch (error) {
-      vaultWatcher?.close();
-      throw error;
-    }
-  }
-  let vaultHealth = {
-    ...initialVault,
-    index: initialVault.manifest !== null ? "current" : initialVault.index,
-  };
+  let vaultHealth = synchronizeVaultIndex(options);
   let verifiedAt: string | null = new Date().toISOString();
   let indexWatcher: FSWatcher | undefined;
   let inspectionWorker: Worker | undefined;
@@ -259,7 +248,7 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
   if (vaultWatcher) vaultWatcher.on("error", watchError);
   try {
     indexWatcher = watch(options.stateDirectory, (_event, filename) => {
-      if (filename?.toString() === "bootstrap-index.json") changed();
+      if (["bootstrap-index.json", indexFilename].includes(filename?.toString() ?? "")) changed();
     });
     indexWatcher.on("error", watchError);
   } catch {
