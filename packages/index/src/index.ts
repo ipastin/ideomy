@@ -69,6 +69,7 @@ export type IndexInput = {
 
 export type SearchHit = { path: string; entityId: string | null; title: string };
 export const indexFilename = "structured-index.sqlite";
+const relationResolutionVersion = 2;
 
 type Entry = { path: string; note: ParsedNote };
 
@@ -80,6 +81,7 @@ export function indexRevision(entries: Entry[], input: IndexInput): string {
   return hashRaw(
     Buffer.from(
       JSON.stringify({
+        relationResolutionVersion,
         vaultId: input.vaultId,
         vaultFingerprint: input.vaultFingerprint,
         mapping: Object.fromEntries(
@@ -97,18 +99,21 @@ function resolveTarget(
   targetType: string,
 ): { id: string | null; resolution: string } {
   const reference = target.slice(2, -2).split("|", 1)[0]?.split("#", 1)[0]?.replace(/\.md$/i, "") ?? "";
-  const managed = entries.filter((entry) => entry.note.kind === "managed");
   const candidates = [
-    managed.filter((entry) => entry.path.replace(/\.md$/i, "") === reference),
-    managed.filter((entry) => path.basename(entry.path, ".md") === reference || title(entry) === reference),
-    managed.filter((entry) => (entry.note.logicalProperties?.aliases as unknown[] | undefined)?.includes(reference)),
+    entries.filter((entry) => entry.path.replace(/\.md$/i, "") === reference),
+    entries.filter((entry) => path.basename(entry.path, ".md") === reference || title(entry) === reference),
+    entries.filter((entry) => {
+      const aliases = entry.note.logicalProperties?.aliases;
+      return Array.isArray(aliases) && aliases.includes(reference);
+    }),
   ];
   for (const matches of candidates) {
     if (!matches.length) continue;
-    const typed = matches.filter((entry) => entry.note.logicalProperties?.type === targetType);
-    if (!typed.length) return { id: null, resolution: "missing" };
-    if (typed.length !== 1) return { id: null, resolution: "ambiguous" };
-    return { id: typed[0]?.note.logicalProperties?.id as string, resolution: "resolved" };
+    if (matches.length !== 1) return { id: null, resolution: "ambiguous" };
+    const match = matches[0];
+    if (match?.note.kind !== "managed" || match.note.logicalProperties?.type !== targetType)
+      return { id: null, resolution: "missing" };
+    return { id: match.note.logicalProperties.id as string, resolution: "resolved" };
   }
   return { id: null, resolution: "missing" };
 }
