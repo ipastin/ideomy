@@ -92,7 +92,11 @@ function requireCase(ok: boolean, id: string, reason: string): void {
 }
 function prepareBase(vault: string): void {
   for (const file of seedFiles) fixture(vault, file);
-  put(vault, project, `${read(vault, project)}\n[[Article — Intent and Information Architecture]]\n[[2026-10-06]]\n`);
+  put(
+    vault,
+    project,
+    `${read(vault, project).replace("status: active", 'status: active\naliases: ["Ideomy Blueprint"]')}\n[[Article — Intent and Information Architecture]]\n[[2026-10-06]]\n`,
+  );
   put(vault, journal, read(vault, journal).replace("agent_access: restricted", "agent_access: allowed"));
   for (const file of ["30 People/Alex Example.md", "41 Meetings/2026-10-04 — Architecture Review — Alex Example.md"])
     put(vault, file, `${read(vault, file)}\nархитектурном review\n`);
@@ -136,7 +140,9 @@ function prepareBase(vault: string): void {
       .replace("kn_01M4K11NG0P7VQFQ3Z69M6XACE", "kn_01M4K11NG0P7VQFQ3Z69M6XACG")
       .replaceAll("Primary Area Is Determined by Intent", "Квантовая стратегия"),
   );
-  put(vault, decision, `${read(vault, decision)}\nстратегия\n`);
+  put(vault, "20 Knowledge/Hangul Unicode.md", "# 가\n나\n");
+  put(vault, "20 Knowledge/Résumé.md", "# Résumé\n");
+  put(vault, decision, `${read(vault, decision)}\nстратегия resume\n`);
   put(vault, knowledge, `${read(vault, knowledge)}\nprivacyprobe\n`);
   put(vault, localOnly, `${read(vault, localOnly)}\nprivacyprobe\n`);
   put(vault, unmanaged, `${read(vault, unmanaged)}\nprivacyprobe\n`);
@@ -331,6 +337,19 @@ function run(): void {
             local(item.authority_query ?? "").hits[0]?.path === item.expected_first_path,
             item.id,
             "lexical relevance did not beat authority",
+          );
+        } else if (kind === "unicode_normalization") {
+          for (const query of [item.query ?? "", item.fallback_query ?? ""])
+            requireCase(
+              local(query).hits.some((hit) => hit.path === item.expected_path),
+              item.id,
+              `canonically equivalent query ${query} missed note`,
+            );
+        } else if (kind === "accent_lexical") {
+          requireCase(
+            local(item.query ?? "").hits[0]?.path === item.expected_first_path,
+            item.id,
+            "accent-folded title match did not beat authority body match",
           );
         } else if (kind === "authority_prior") {
           const paths = local(item.query ?? "", { kind: "unscoped" }, item.confirmed_inbox_root).hits.map(

@@ -110,7 +110,7 @@ export type LookupResult =
 export const indexFilename = "structured-index.sqlite";
 const relationResolutionVersion = 2;
 const graphIndexVersion = 1;
-const scopedRetrievalIndexVersion = 1;
+const scopedRetrievalIndexVersion = 2;
 
 type Entry = { path: string; note: ParsedNote };
 
@@ -269,7 +269,7 @@ export class BetterSqliteStore implements SqliteStore {
         );
         const content = entry.note.bodyBytes.toString("utf8");
         const result = chunk.run(entry.path, content);
-        fts.run(result.lastInsertRowid, noteTitle, content);
+        fts.run(result.lastInsertRowid, noteTitle.normalize("NFC"), content.normalize("NFC"));
       }
       for (const entry of entries) {
         for (const [ordinal, link] of entry.note.structure.links.entries()) {
@@ -301,7 +301,7 @@ export class BetterSqliteStore implements SqliteStore {
 
   search(query: string): SearchHit[] {
     if (!/[\p{L}\p{N}]/u.test(query)) return [];
-    const literal = `"${query.replaceAll('"', '""')}"`;
+    const literal = `"${query.normalize("NFC").replaceAll('"', '""')}"`;
     return this.db
       .prepare(`SELECT d.path, d.entity_id AS entityId, d.title
       FROM fts_chunks f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
@@ -319,27 +319,29 @@ export class BetterSqliteStore implements SqliteStore {
       ),
     ];
     if (!terms.length) return [];
-    const statement = this.db.prepare(`SELECT d.path, d.entity_id AS entityId, d.title, c.content
+    const statement = this.db.prepare(`SELECT f.rowid, d.path, d.entity_id AS entityId, d.title
       FROM fts_chunks f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
       WHERE fts_chunks MATCH ? ORDER BY d.path`);
     const expression = terms
       .map((term) => `"${term.replaceAll('"', '""')}"`)
       .join(operator === "and" ? " AND " : " OR ");
-    const rows = statement.all(expression) as (SearchHit & { content: string })[];
-    return rows.map(({ content, ...hit }) => {
-      const title = new Set(
-        hit.title
-          .normalize("NFC")
-          .toLowerCase()
-          .match(/[\p{L}\p{N}]+/gu) ?? [],
+    const rows = statement.all(expression) as (SearchHit & { rowid: number })[];
+    const columnMatches = this.db.prepare("SELECT rowid FROM fts_chunks WHERE fts_chunks MATCH ?");
+    const matches = terms.map((term) =>
+      (["title", "content"] as const).map(
+        (column) =>
+          new Set(
+            (columnMatches.all(`${column} : "${term.replaceAll('"', '""')}"`) as { rowid: number }[]).map(
+              (row) => row.rowid,
+            ),
+          ),
+      ),
+    );
+    return rows.map(({ rowid, ...hit }) => {
+      const lexicalScore = matches.reduce(
+        (score, [title, content]) => score + (title?.has(rowid) ? 5 : content?.has(rowid) ? 1 : 0),
+        0,
       );
-      const body = new Set(
-        content
-          .normalize("NFC")
-          .toLowerCase()
-          .match(/[\p{L}\p{N}]+/gu) ?? [],
-      );
-      const lexicalScore = terms.reduce((score, term) => score + (title.has(term) ? 5 : body.has(term) ? 1 : 0), 0);
       return { ...hit, lexicalScore };
     });
   }

@@ -126,6 +126,33 @@ it("looks up normalized names without hiding collisions and indexes resolved wik
   }
 });
 
+it("matches canonical Unicode in FTS and scores accent-folded title matches above body matches", () => {
+  const f = syntheticVault();
+  try {
+    writeFileSync(path.join(f.vaultRoot, "Hangul.md"), "# 가\n나\n");
+    writeFileSync(path.join(f.vaultRoot, "Résumé.md"), "# Résumé\n");
+    writeFileSync(path.join(f.vaultRoot, "Body.md"), "# Body\nresume\n");
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      store.rebuild(f.input);
+      expect(store.search("가")).toContainEqual(expect.objectContaining({ path: "Hangul.md" }));
+      expect(store.search("가")).toContainEqual(expect.objectContaining({ path: "Hangul.md" }));
+      expect(store.searchTerms("나")).toContainEqual(expect.objectContaining({ path: "Hangul.md", lexicalScore: 1 }));
+      expect(store.searchTerms("resume", "or")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "Résumé.md", lexicalScore: 5 }),
+          expect.objectContaining({ path: "Body.md", lexicalScore: 1 }),
+        ]),
+      );
+      expect(store.searchTerms("resume absent", "or")).toEqual(store.searchTerms("resume", "or"));
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
 it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", () => {
   const f = syntheticVault();
   try {

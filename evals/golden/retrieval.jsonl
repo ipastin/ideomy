@@ -18,3 +18,7 @@
 {"id": "ret-018", "kind": "policy_fallback", "query": "privacyprobe denied", "expected_path": "20 Knowledge/Primary Area Is Determined by Intent.md", "excluded_path": "40 Decisions/Denied Privacy Probe.md", "metric": "lexical_policy"}
 {"id": "ret-019", "kind": "invalid_area", "query": "Ideomy", "metric": "scope_policy"}
 {"id": "ret-020", "kind": "authority_prior", "query": "rankingprobe", "confirmed_inbox_root": "01 Inbox", "expected_paths": ["21 Sources/Processed Probe.md", "60 Journal/Daily/2026-10-06.md", "01 Inbox/Manual Capture.md"], "metric": "ranking_policy"}
+{"id": "ret-021", "kind": "exact_lookup", "query": "prj_01M4K11NG0XKJFG87XA758PBH3", "expected_ids": ["prj_01M4K11NG0XKJFG87XA758PBH3"], "metric": "exact_accuracy"}
+{"id": "ret-022", "kind": "exact_lookup", "query": "IDEOMY BLUEPRINT", "expected_ids": ["prj_01M4K11NG0XKJFG87XA758PBH3"], "metric": "exact_accuracy"}
+{"id": "ret-023", "kind": "unicode_normalization", "query": "가", "fallback_query": "가", "expected_path": "20 Knowledge/Hangul Unicode.md", "metric": "lexical_policy"}
+{"id": "ret-024", "kind": "accent_lexical", "query": "resume", "expected_first_path": "20 Knowledge/Résumé.md", "metric": "lexical_policy"}

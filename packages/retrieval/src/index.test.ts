@@ -38,7 +38,7 @@ it("builds a bounded Project Pack from incoming links with provenance and access
     const projectFile = path.join(vaultRoot, project);
     writeFileSync(
       projectFile,
-      `${readFileSync(projectFile, "utf8")}\n[[Private Local Only]]\n[[Unmanaged Existing Note]]\n`,
+      `${readFileSync(projectFile, "utf8").replace("status: active", 'status: active\naliases: ["Ideomy Blueprint"]')}\n[[Private Local Only]]\n[[Unmanaged Existing Note]]\n`,
     );
     const unmanaged = "20 Knowledge/Unmanaged Existing Note.md";
     copyFileSync(path.join(fixtures, unmanaged), path.join(vaultRoot, unmanaged));
