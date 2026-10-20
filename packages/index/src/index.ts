@@ -17,6 +17,27 @@ export const relationTargets = {
 } as const;
 
 const unfinishedTransaction = "SELECT 1 FROM transactions WHERE state NOT IN ('committed', 'rolled_back') LIMIT 1";
+const requiredTables = [
+  "index_metadata",
+  "entities",
+  "file_state",
+  "relationships",
+  "documents",
+  "chunks",
+  "fts_chunks",
+  "transactions",
+] as const;
+
+function hasRequiredSchema(db: Database.Database): boolean {
+  const rows = db.prepare("SELECT name, sql FROM sqlite_schema WHERE type = 'table'").all() as {
+    name: string;
+    sql: string;
+  }[];
+  const tables = new Map(rows.map((row) => [row.name, row.sql]));
+  return (
+    requiredTables.every((name) => tables.has(name)) && /^CREATE VIRTUAL TABLE/i.test(tables.get("fts_chunks") ?? "")
+  );
+}
 
 export class IndexError extends Error {
   readonly code: string;
@@ -73,9 +94,7 @@ function resolveTarget(
   targetType: string,
 ): { id: string | null; resolution: string } {
   const reference = target.slice(2, -2).split("|", 1)[0]?.split("#", 1)[0]?.replace(/\.md$/i, "") ?? "";
-  const managed = entries.filter(
-    (entry) => entry.note.kind === "managed" && entry.note.logicalProperties?.type === targetType,
-  );
+  const managed = entries.filter((entry) => entry.note.kind === "managed");
   const candidates = [
     managed.filter((entry) => entry.path.replace(/\.md$/i, "") === reference),
     managed.filter((entry) => path.basename(entry.path, ".md") === reference || title(entry) === reference),
@@ -83,8 +102,10 @@ function resolveTarget(
   ];
   for (const matches of candidates) {
     if (!matches.length) continue;
-    if (matches.length !== 1) return { id: null, resolution: "ambiguous" };
-    return { id: matches[0]?.note.logicalProperties?.id as string, resolution: "resolved" };
+    const typed = matches.filter((entry) => entry.note.logicalProperties?.type === targetType);
+    if (!typed.length) return { id: null, resolution: "missing" };
+    if (typed.length !== 1) return { id: null, resolution: "ambiguous" };
+    return { id: typed[0]?.note.logicalProperties?.id as string, resolution: "resolved" };
   }
   return { id: null, resolution: "missing" };
 }
@@ -108,6 +129,7 @@ export class BetterSqliteStore implements SqliteStore {
           this.db.pragma(`user_version = ${step + 1}`);
         })();
       }
+      if (!hasRequiredSchema(this.db)) throw new IndexError("INDEX-003", "Index database schema is incomplete.");
     } catch (error) {
       this.db.close();
       throw error;
@@ -222,6 +244,7 @@ export function inspectIndex(
     try {
       if (db.pragma("user_version", { simple: true }) !== migrations.length) return "invalid";
       if (db.pragma("quick_check", { simple: true }) !== "ok") return "invalid";
+      if (!hasRequiredSchema(db)) return "invalid";
       if (db.prepare(unfinishedTransaction).get()) return "invalid";
       const row = db.prepare("SELECT value FROM index_metadata WHERE key = 'revision'").get() as
         | { value?: string }

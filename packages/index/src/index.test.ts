@@ -94,7 +94,8 @@ it("keeps relationship targets within the machine contract's entity type", () =>
   );
   const f = syntheticVault();
   try {
-    const personFile = path.join(f.vaultRoot, "person.md");
+    const personFile = path.join(f.vaultRoot, "30 People/Alex Example.md");
+    mkdirSync(path.dirname(personFile), { recursive: true });
     copyFileSync(path.join(fixtures, "30 People/Alex Example.md"), personFile);
     const projectFile = path.join(f.vaultRoot, project);
     const original = readFileSync(projectFile, "utf8");
@@ -131,6 +132,28 @@ it("keeps relationship targets within the machine contract's entity type", () =>
         ).toMatchObject({ target_id: expect.stringMatching(/^area_/), resolution: "resolved" });
       } finally {
         resolved.close();
+      }
+      const areaFile = path.join(f.vaultRoot, area);
+      writeFileSync(
+        areaFile,
+        readFileSync(areaFile, "utf8").replace("status: active", 'status: active\naliases: ["30 People/Alex Example"]'),
+      );
+      writeFileSync(
+        projectFile,
+        original.replace('primary_area: "[[Technology & AI]]"', 'primary_area: "[[30 People/Alex Example]]"'),
+      );
+      store.rebuild(f.input);
+      const exactPath = new Database(f.databasePath, { readonly: true });
+      try {
+        expect(
+          exactPath
+            .prepare(
+              "SELECT target_id, resolution FROM relationships WHERE source_id = ? AND property = 'primary_area'",
+            )
+            .get(projectId),
+        ).toEqual({ target_id: null, resolution: "missing" });
+      } finally {
+        exactPath.close();
       }
     } finally {
       store.close();
@@ -200,6 +223,22 @@ it("fails closed on duplicate IDs and preserves unfinished recovery metadata", (
     } finally {
       reopened.close();
     }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("reports an incomplete FTS schema instead of a current cached revision", () => {
+  const f = syntheticVault();
+  try {
+    const store = new BetterSqliteStore(f.databasePath);
+    const revision = store.rebuild(f.input);
+    store.close();
+    const db = new Database(f.databasePath);
+    db.exec("DROP TABLE fts_chunks");
+    db.close();
+    expect(inspectIndex(f.databasePath, revision)).toBe("invalid");
+    expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-003" }));
   } finally {
     rmSync(f.directory, { recursive: true, force: true });
   }

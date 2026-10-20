@@ -7,7 +7,7 @@ import { readCliAdminSecret } from "@ideomy/platform";
 import { deriveVaultFingerprint } from "@ideomy/vault-io";
 import { expect, it } from "vitest";
 import { startCore } from "./index.ts";
-import { inspectVault } from "./vault-health.ts";
+import { inspectVault, synchronizeVaultIndex } from "./vault-health.ts";
 
 const person = `---
 ideomy_schema: 1
@@ -161,6 +161,22 @@ it("blocks validity for duplicate IDs, malformed YAML, invalid mapping and wrong
     });
     rmSync(profile.vaultPath, { recursive: true });
     expect(inspectVault(profile)).toMatchObject({ vault: "unavailable", index: "unavailable" });
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
+});
+
+it("reports an invalid SQLite cache and rebuilds after cache removal", () => {
+  const { directory, profile } = fixture();
+  try {
+    expect(synchronizeVaultIndex(profile).index).toBe("current");
+    const databasePath = path.join(profile.stateDirectory, indexFilename);
+    writeFileSync(databasePath, "not a SQLite database");
+    expect(inspectVault(profile).index).toBe("invalid");
+    expect(synchronizeVaultIndex(profile).index).toBe("invalid");
+    unlinkSync(databasePath);
+    expect(synchronizeVaultIndex(profile).index).toBe("current");
+    expect(readFileSync(path.join(profile.vaultPath, "person.md"), "utf8")).toBe(person);
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
