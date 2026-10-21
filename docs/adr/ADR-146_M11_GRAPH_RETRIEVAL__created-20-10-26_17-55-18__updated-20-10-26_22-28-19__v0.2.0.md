@@ -1,18 +1,18 @@
 ---
 title: "ADR-146 — Bounded M1.1 graph retrieval and Project Context Pack"
 created: "20-10-26 17-55-18"
-updated: "20-10-26 18-35-49"
-version: "0.1.1"
+updated: "20-10-26 22-28-19"
+version: "0.2.0"
 status: "accepted"
-commit: "fix(retrieval): preserve eligible context at graph bounds"
+commit: "feat(retrieval): add scoped retrieval and executable evals"
 ---
 
 # ADR-146 — Bounded M1.1 graph retrieval and Project Context Pack
 
 Created: 20-10-26 17-55-18
-Updated: 20-10-26 18-35-49
-Version: 0.1.1
-Change: `fix(retrieval): preserve eligible context at graph bounds`
+Updated: 20-10-26 22-28-19
+Version: 0.2.0
+Change: `feat(retrieval): add scoped retrieval and executable evals`
 
 ## Context
 
@@ -26,6 +26,15 @@ M1 stores managed relations and FTS, but does not expose exact lookup, graph tra
 - A Project Context Pack is a transient runtime value with the nine sections named in `04_KNOWLEDGE_INTELLIGENCE`. Missing sections are empty. It uses deterministic metadata, headings and source excerpts, never generated factual text. At most 10 items and 12,000 Unicode code points of item text are included; truncation and omitted item count are explicit. The count includes distinct eligible notes lost at the graph bound plus Pack items omitted by its own budget; excluded notes are never counted. Each item is marked as untrusted data and cites a stable managed ID or path plus raw hash. The manifest carries the Vault fingerprint and index revision. The caller supplies the expected current revision; this package does not rescan the Vault to establish freshness.
 - The Pack requires an `agent_context` purpose and matching Vault fingerprint/revision. Only `agent_access=allowed` with `sensitivity=public|internal|private` may contribute text. Unknown, `restricted`, `local_only`, `denied` and `sensitive` are excluded. This is a bounded first consumer profile, not a change to canonical content or a claim that other profiles are forbidden forever. Existing direct local retrieval seeds, including `local_only`, remain separate from Pack eligibility.
 - Candidate ranking uses a root-title FTS match as a relevance boost, then the accepted Decision / evergreen Knowledge / verified Record / Project / Source / Meeting / Journal authority prior, with deterministic path ties. Allowed Source items enter Relevant Knowledge and allowed Journal items enter Recent Activity. Dated Decision and activity items sort newest first within their sections. The prior is not absolute.
+
+### Remaining M1.1 scoped retrieval and eval decision
+
+- **A3 — Area scope.** A resolved managed `primary_area` typed edge places a note in the first tier; a resolved `related_areas` typed edge places it in the second tier, with `scopeReason` on every result. Primary wins if both edges exist. Wikilinks, path names and text mentions never assign Area. Unmanaged notes remain available only in unscoped discovery and cannot acquire Area by inference.
+- **U1 — unmanaged discovery.** Unmanaged notes may appear in unscoped `local_discovery` with path, raw hash, title and provenance. They are never adopted or granted `agent_context` by indexing.
+- **R2 — raw and processed source identity.** `ideomy_capture: web-v1` together with `capture_type: web` and `capture_status: inbox` identifies a raw Web Capture regardless of path. Other raw Inbox classification requires an explicitly supplied, relative confirmed Inbox root and a path beneath it; a path merely containing “Inbox” is insufficient. An unmanaged note outside that root remains ordinary unscoped discovery. A managed Source is a processed Source only for `type=source,status=processed`; an unprocessed Source outside a confirmed Inbox root is not returned. These are derived classifications, not canonical note mutations.
+- **Q2 — lexical retrieval.** Unicode letter/number terms are normalized to NFC and lowercase. FTS requires all terms first; if no policy-eligible hit remains, it retries with OR. Rank within a scope tier by deterministic lexical term matches, then a smaller authority prior, then path. Raw Inbox and Web Capture have a lower prior than Journal and processed Source even when their managed type is Source. The authority prior cannot overrule a stronger lexical match. The existing literal phrase `search()` API and exact lookup semantics remain unchanged.
+- **P2 — purpose profiles.** `agent_context` includes only managed `agent_access=allowed` and supported sensitivity, and may return bounded note text marked `untrusted_data`. `local_discovery` returns identity/provenance metadata only, including `local_only`, restricted and unmanaged notes. Managed `denied` is excluded from both. Every request must supply matching Vault fingerprint and expected index revision; either mismatch fails before returning results. The package does not authenticate a caller or establish freshness by rescanning the Vault; those responsibilities remain with a future authorized Core caller.
+- The executable synthetic runner executes every declared `evals/golden/retrieval.jsonl` case and compares applicable thresholds in `evals/thresholds.json`. Exact lookup accuracy is correct exact cases divided by all exact cases. Decision why Recall@5 and Project key-item Recall@10 are micro recall: expected IDs present in the first 5 or 10 results divided by all expected IDs in their respective tagged cases. Wrong-Vault and privacy failures are event counts. The runner reports unrelated gates as `not_run`; it does not change or waive them.
 
 ## Alternatives considered
 

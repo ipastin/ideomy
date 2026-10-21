@@ -40,7 +40,7 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     const before = readFileSync(path.join(f.vaultRoot, project));
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(2);
+      expect(store.version).toBe(3);
       const first = store.rebuild(f.input);
       expect(store.rebuild(f.input)).toBe(first);
       expect(inspectIndex(f.databasePath, first)).toBe("current");
@@ -73,12 +73,12 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     expect(readFileSync(path.join(f.vaultRoot, project))).toEqual(before);
     const reopened = new BetterSqliteStore(f.databasePath);
     try {
-      expect(reopened.version).toBe(2);
+      expect(reopened.version).toBe(3);
     } finally {
       reopened.close();
     }
     const future = new Database(f.databasePath);
-    future.pragma("user_version = 3");
+    future.pragma("user_version = 4");
     future.close();
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-002" }));
   } finally {
@@ -126,6 +126,33 @@ it("looks up normalized names without hiding collisions and indexes resolved wik
   }
 });
 
+it("matches canonical Unicode in FTS and scores accent-folded title matches above body matches", () => {
+  const f = syntheticVault();
+  try {
+    writeFileSync(path.join(f.vaultRoot, "Hangul.md"), "# 가\n나\n");
+    writeFileSync(path.join(f.vaultRoot, "Résumé.md"), "# Résumé\n");
+    writeFileSync(path.join(f.vaultRoot, "Body.md"), "# Body\nresume\n");
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      store.rebuild(f.input);
+      expect(store.search("가")).toContainEqual(expect.objectContaining({ path: "Hangul.md" }));
+      expect(store.search("가")).toContainEqual(expect.objectContaining({ path: "Hangul.md" }));
+      expect(store.searchTerms("나")).toContainEqual(expect.objectContaining({ path: "Hangul.md", lexicalScore: 1 }));
+      expect(store.searchTerms("resume", "or")).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ path: "Résumé.md", lexicalScore: 5 }),
+          expect.objectContaining({ path: "Body.md", lexicalScore: 1 }),
+        ]),
+      );
+      expect(store.searchTerms("resume absent", "or")).toEqual(store.searchTerms("resume", "or"));
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
 it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", () => {
   const f = syntheticVault();
   try {
@@ -142,7 +169,7 @@ it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", (
     writeFileSync(collision, "# Synthetic unmanaged\n");
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(2);
+      expect(store.version).toBe(3);
       const revision = store.rebuild(f.input);
       expect(inspectIndex(f.databasePath, revision)).toBe("current");
       expect(store.edges().some((edge) => edge.kind === "wiki" && edge.sourcePath === project)).toBe(false);

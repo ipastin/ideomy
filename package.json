@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.node.json",
     "test": "vitest run",
     "test:contract": "vitest run packages/schema/src/schema.contract.test.ts packages/contracts/src/protocol.contract.test.ts",
+    "eval:retrieval": "node --experimental-transform-types scripts/run-retrieval-evals.ts",
     "build": "tsc -p tsconfig.build.json && node scripts/generate-schemas.mjs && pnpm --filter @ideomy/obsidian-plugin build",
     "validate:schemas": "node scripts/validate-artifacts.mjs schemas",
     "validate:fixtures": "node scripts/validate-artifacts.mjs fixtures",
