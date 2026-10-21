@@ -12,6 +12,15 @@ Ideomy is an in-development system for connecting notes, sources, projects, and 
 
 Typed Vault transactions, Model Gateway, AI skills, and external MCP access are later milestones. The current CLI does not expose the package-level retrieval functions as a user-facing search command. See the [implementation roadmap](docs/spec/11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md) for the intended sequence.
 
+## What makes Ideomy different
+
+Ideomy combines Vault ownership, explicit knowledge structure, and bounded automation. [What works today](#what-works-today) separates implemented pieces from the planned behavior below.
+
+- **Keep the Vault authoritative.** Markdown and attachments hold the knowledge; the SQLite/FTS index can be rebuilt without losing it.
+- **Use existing notes without forced migration.** Unmanaged notes can be indexed and linked without being silently adopted or rewritten. Managed entities use stable IDs independent of filenames.
+- **Keep evidence and insight distinct.** The planned capture pipeline separates Inbox clips, Sources, synthesized Knowledge, and Decisions. A clip may enrich an existing Source or produce no new Knowledge.
+- **Limit the context AI can use.** Package-level Project Context Packs already scope retrieval. The planned Model Gateway must exclude `denied` content and never send `local_only` content to a cloud provider through fallback.
+
 ## Try the development CLI
 
 Prerequisites: **Node.js 24** and **pnpm 12.13.0** (via Corepack). The full Core/bootstrap path currently targets macOS; CI also checks the repository on Ubuntu.
@@ -60,7 +69,7 @@ The external Personal Vault is outside this repository and is not covered by its
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 13-11-13
-version: 0.1.3
-commit: docs(license): clarify repository-wide scope
+updated: 21-10-26 13-16-55
+version: 0.1.4
+commit: docs(readme): explain Ideomy design choices
 -->
