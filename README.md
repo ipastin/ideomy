@@ -36,7 +36,7 @@ CLI ─────────────┘                            │
                                               └─ rebuildable SQLite/FTS index
 ```
 
-The Personal Vault stays outside the software repository and is never required for builds or CI. Tests and examples use synthetic fixtures. Browser capture follows the official Obsidian Web Clipper templates in [`web-clipper/`](web-clipper/); captured text is untrusted until Core processes it.
+The Personal Vault stays outside the software repository and is never required for builds or CI. Tests and examples use synthetic fixtures. Browser capture follows the official Obsidian Web Clipper templates in [`web-clipper/`](web-clipper/); captured page content remains untrusted input, while Core handles semantic processing.
 
 ## Develop and contribute
 
@@ -58,7 +58,7 @@ No license file is present in this repository yet.
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 09-21-40
-version: 0.1.0
-commit: docs(readme): add project overview and developer quickstart
+updated: 21-10-26 09-22-59
+version: 0.1.1
+commit: docs(readme): clarify capture trust boundary
 -->
