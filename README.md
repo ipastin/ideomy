@@ -12,6 +12,15 @@ Ideomy is an in-development system for connecting notes, sources, projects, and 
 
 Typed Vault transactions, Model Gateway, AI skills, and external MCP access are later milestones. The current CLI does not expose the package-level retrieval functions as a user-facing search command. See the [implementation roadmap](docs/spec/11_IMPLEMENTATION__created-06-10-26_16-40-00__updated-15-10-26_14-53-19__v0.11.1.md) for the intended sequence.
 
+## What makes Ideomy different
+
+Ideomy combines Vault ownership, explicit knowledge structure, and bounded automation. These are design choices; [What works today](#what-works-today) shows which pieces already run.
+
+- **Keep the Vault authoritative.** Markdown and attachments hold the knowledge; the SQLite/FTS index can be rebuilt without losing it.
+- **Use existing notes without forced migration.** Unmanaged notes can be indexed and linked without being silently adopted or rewritten. Managed entities use stable IDs independent of filenames.
+- **Keep evidence and insight distinct.** The planned capture pipeline separates Inbox clips, Sources, synthesized Knowledge, and Decisions. A clip may enrich an existing Source or produce no new Knowledge.
+- **Bound context before AI.** Package-level Project Context Packs already enforce Vault and revision scope and exclude `denied` content. The planned Model Gateway must keep `local_only` content off cloud providers without silent fallback.
+
 ## Try the development CLI
 
 Prerequisites: **Node.js 24** and **pnpm 12.13.0** (via Corepack). The full Core/bootstrap path currently targets macOS; CI also checks the repository on Ubuntu.
@@ -56,11 +65,11 @@ pnpm build
 
 Copyright 2026 Igor Pastin. All files in this repository are licensed under the [Mozilla Public License 2.0](LICENSE) (`MPL-2.0`). If you distribute modified Ideomy files, you must make the covered source files available to recipients under MPL-2.0. Running a modified version only as a hosted service does not, by itself, trigger that distribution requirement.
 
-The external Personal Vault is outside this repository and is not covered by its license. Installed third-party dependencies retain their own licenses.
+The external Personal Vault is outside this repository. Content created independently in your Vault is not covered by Ideomy's license; copies or modifications of Ideomy starter files retain their MPL-2.0 terms when placed in a Vault. Installed third-party dependencies retain their own licenses.
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 13-11-13
-version: 0.1.3
-commit: docs(license): clarify repository-wide scope
+updated: 21-10-26 13-45-01
+version: 0.1.6
+commit: docs(readme): clarify copied Vault file licensing
 -->
