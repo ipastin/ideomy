@@ -14,12 +14,12 @@ Typed Vault transactions, Model Gateway, AI skills, and external MCP access are 
 
 ## What makes Ideomy different
 
-Ideomy combines Vault ownership, explicit knowledge structure, and bounded automation. [What works today](#what-works-today) separates implemented pieces from the planned behavior below.
+Ideomy combines Vault ownership, explicit knowledge structure, and bounded automation. These are design choices; [What works today](#what-works-today) shows which pieces already run.
 
 - **Keep the Vault authoritative.** Markdown and attachments hold the knowledge; the SQLite/FTS index can be rebuilt without losing it.
 - **Use existing notes without forced migration.** Unmanaged notes can be indexed and linked without being silently adopted or rewritten. Managed entities use stable IDs independent of filenames.
 - **Keep evidence and insight distinct.** The planned capture pipeline separates Inbox clips, Sources, synthesized Knowledge, and Decisions. A clip may enrich an existing Source or produce no new Knowledge.
-- **Limit the context AI can use.** Package-level Project Context Packs already scope retrieval. The planned Model Gateway must exclude `denied` content and never send `local_only` content to a cloud provider through fallback.
+- **Bound context before AI.** Package-level Project Context Packs already enforce Vault and revision scope and exclude `denied` content. The planned Model Gateway must keep `local_only` content off cloud providers without silent fallback.
 
 ## Try the development CLI
 
@@ -69,7 +69,7 @@ The external Personal Vault is outside this repository and is not covered by its
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 13-16-55
-version: 0.1.4
-commit: docs(readme): explain Ideomy design choices
+updated: 21-10-26 13-19-26
+version: 0.1.5
+commit: docs(readme): clarify current and planned capabilities
 -->
