@@ -54,11 +54,13 @@ pnpm build
 
 ## License
 
-No license file is present in this repository yet.
+Copyright 2026 Igor Pastin. All files in this repository are licensed under the [Mozilla Public License 2.0](LICENSE) (`MPL-2.0`). If you distribute modified Ideomy files, you must make the covered source files available to recipients under MPL-2.0. Running a modified version only as a hosted service does not, by itself, trigger that distribution requirement.
+
+The external Personal Vault is outside this repository and is not covered by its license. Installed third-party dependencies retain their own licenses.
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 09-22-59
-version: 0.1.1
-commit: docs(readme): clarify capture trust boundary
+updated: 21-10-26 13-11-13
+version: 0.1.3
+commit: docs(license): clarify repository-wide scope
 -->
