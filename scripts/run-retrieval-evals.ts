@@ -30,7 +30,13 @@ type Case = {
   expected_relevant_count?: number;
   eligible_neighbors?: number;
   restricted_neighbors?: number;
+  decision_context?: string;
+  basis?: string;
+  target?: SyntheticDecision;
+  distractors?: SyntheticDecision[];
 };
+
+type SyntheticDecision = { id: string; title: string; rationale: string };
 
 const root = path.resolve(import.meta.dirname, "..");
 const fixtureRoot = path.join(root, "fixtures/test-vault");
@@ -156,6 +162,29 @@ function prepareBase(vault: string): void {
   );
   for (const file of ["21 Sources/Processed Probe.md", journal, "01 Inbox/Manual Capture.md"])
     put(vault, file, `${read(vault, file)}\nrankingprobe\n`);
+  const decisionIds = new Set<string>();
+  for (const item of cases) {
+    if (!item.target) continue;
+    if (
+      item.metric !== "decision_why_recall@5" ||
+      item.expected_ids?.length !== 1 ||
+      item.expected_ids[0] !== item.target.id ||
+      !item.decision_context ||
+      !item.basis ||
+      item.distractors?.length !== 5
+    )
+      throw new Error(`${item.id}: invalid Decision why candidates`);
+    for (const [index, candidate] of [item.target, ...item.distractors].entries()) {
+      if (!candidate.id || !candidate.title || !candidate.rationale || decisionIds.has(candidate.id))
+        throw new Error(`${item.id}: invalid or duplicate Decision candidate`);
+      decisionIds.add(candidate.id);
+      put(
+        vault,
+        `40 Decisions/${index ? "AA" : "ZZ"} ${candidate.id}.md`,
+        `---\nideomy_schema: 1\nid: ${candidate.id}\ntype: decision\nstatus: accepted\ndate: 2026-10-03\nprimary_area: "[[Technology & AI]]"\ncreated: 2026-10-03T09:00:00+03:00\nupdated: 2026-10-03T09:00:00+03:00\nsensitivity: internal\nagent_access: allowed\n---\n# ${candidate.title}\n\nContext: ${item.decision_context}\n\n## Why\n${candidate.rationale}\n`,
+      );
+    }
+  }
 }
 
 function runBoundedCase(item: Case, directory: string): void {
@@ -211,6 +240,7 @@ function run(): void {
   let vaultFailures = 0,
     privacyFailures = 0;
   const passed: string[] = [];
+  const whyCompetition: { caseId: string; expectedRank: number; matchedDistractors: number }[] = [];
   try {
     prepareBase(vault);
     const store = new BetterSqliteStore(path.join(directory, "index.sqlite"));
@@ -231,12 +261,18 @@ function run(): void {
         });
       if (new Set(cases.map((item) => item.id)).size !== cases.length)
         throw new Error("Golden case IDs must be unique.");
+      const whyIds = cases
+        .filter((item) => item.metric === "decision_why_recall@5")
+        .flatMap((item) => item.expected_ids ?? []);
+      if (whyIds.length !== new Set(whyIds).size)
+        throw new Error("Decision why expected IDs must represent distinct decisions.");
       for (const item of cases) {
         if (!item.id || !item.metric) throw new Error("Golden case is missing id or metric.");
         const before = failures.length;
         const kind = item.kind ?? "search";
         if (kind === "search") {
-          const hits = local(item.query ?? "").hits.slice(0, 5);
+          const allHits = local(item.query ?? "").hits;
+          const hits = allHits.slice(0, 5);
           const ids = new Set(hits.map((hit) => hit.entityId));
           const found = (item.expected_ids ?? []).filter((id) => ids.has(id)).length;
           requireCase(found === item.expected_ids?.length, item.id, "expected search ID absent from top 5");
@@ -245,6 +281,16 @@ function run(): void {
           if (item.metric === "decision_why_recall@5") {
             whyFound += found;
             whyExpected += item.expected_ids?.length ?? 0;
+            if (item.distractors) {
+              const candidates = new Set(allHits.map((hit) => hit.entityId));
+              const matchedDistractors = item.distractors.filter((candidate) => candidates.has(candidate.id)).length;
+              requireCase(matchedDistractors === 5, item.id, "fewer than five competing distractors matched the query");
+              whyCompetition.push({
+                caseId: item.id,
+                expectedRank: allHits.findIndex((hit) => hit.entityId === item.expected_ids?.[0]) + 1,
+                matchedDistractors,
+              });
+            }
           }
         } else if (kind === "exact_lookup") {
           exactTotal++;
@@ -451,6 +497,7 @@ function run(): void {
     ];
     const report = {
       cases: { passed: passed.length, total: cases.length, ids: passed, failures },
+      whyCompetition,
       metrics,
       thresholdsFile: "evals/thresholds.json",
       applicableThresholdsPassed: checks.every(Boolean) && failures.length === 0,
