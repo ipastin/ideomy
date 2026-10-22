@@ -12,7 +12,7 @@ Start with a new or existing Obsidian Vault. Capture a thought or web page into 
 
 For example, a captured article may become a Source, a reusable takeaway may become Knowledge, and a Decision records what was chosen and why.
 
-This is the intended end-to-end experience. [What works today](#what-works-today) lists the pieces already implemented.
+Ideomy’s intended knowledge model uses typed entities and explicit relationships. It shares PARA’s use of Projects and Areas and Zettelkasten’s emphasis on connected, reusable knowledge. Ideomy gives Sources, Knowledge, Decisions, and other entities distinct roles: meaning lives in their properties and links, while folders organize files. It does not require PARA’s four-category structure or a universal one-idea-per-note rule. See [What works today](#what-works-today) for the capabilities currently implemented.
 
 ## What works today
 
@@ -81,7 +81,7 @@ The external Personal Vault is outside this repository. Content created independ
 
 <!--
 created: 21-10-26 09-18-58
-updated: 22-10-26 16-45-00
-version: 0.1.8
-commit: docs(readme): clarify user workflow
+updated: 22-10-26 17-11-25
+version: 0.1.9
+commit: docs(readme): explain knowledge organization
 -->
