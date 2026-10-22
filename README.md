@@ -1,8 +1,14 @@
 # Ideomy — a local-first personal knowledge system
 
-Ideomy is an in-development system for connecting notes, sources, projects, and decisions in an Obsidian Vault. **Your Vault's Markdown files and attachments are the source of truth**; the SQLite search index can be rebuilt from them.
+Ideomy is a local-first personal knowledge system in development that connects notes, sources, projects, and decisions in an Obsidian Vault. It is designed to keep what you learned, the evidence behind it, and the reasons for past decisions together, so you can return to work without reconstructing context from scattered files. **The Vault's Markdown files and attachments are the source of truth**; the SQLite search index can be rebuilt.
 
 > **Status:** Early development. This repository provides a source-based CLI, a development Obsidian Plugin, and local Core packages. It is not a packaged end-user release.
+
+## How Ideomy is meant to work
+
+Start with a new or existing Obsidian Vault. Capture a thought or web page into the Inbox without deciding where it belongs. Later, a capture may become or update a Source, inform reusable Knowledge, or stay in the Inbox; a saved page does not automatically create a new knowledge note. Projects connect the relevant material with Decisions that record what was chosen and why. When you return to a Project, Ideomy aims to assemble a bounded Project Context Pack with the knowledge, decisions, and supporting sources needed to continue.
+
+This is the intended end-to-end experience. [What works today](#what-works-today) lists the pieces already implemented.
 
 ## What works today
 
@@ -69,7 +75,7 @@ The external Personal Vault is outside this repository. Content created independ
 
 <!--
 created: 21-10-26 09-18-58
-updated: 21-10-26 13-45-01
-version: 0.1.6
-commit: docs(readme): clarify copied Vault file licensing
+updated: 22-10-26 16-23-00
+version: 0.1.7
+commit: docs(readme): explain product experience
 -->
