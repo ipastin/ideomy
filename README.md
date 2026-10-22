@@ -6,7 +6,11 @@ Ideomy is a local-first personal knowledge system in development that connects n
 
 ## How Ideomy is meant to work
 
+In the planned experience, everyday knowledge work happens in Obsidian through the Ideomy Plugin. A local Core handles indexing and context; the CLI is for setup and diagnostics.
+
 Start with a new or existing Obsidian Vault. Capture a thought or web page into the Inbox without deciding where it belongs. Later, a capture may become or update a Source, inform reusable Knowledge, or stay in the Inbox; a saved page does not automatically create a new knowledge note. Projects connect the relevant material with Decisions that record what was chosen and why. When you return to a Project, Ideomy aims to assemble a bounded Project Context Pack with the knowledge, decisions, and supporting sources needed to continue.
+
+For example, a captured article may become a Source, a reusable takeaway may become Knowledge, and a Decision records what was chosen and why.
 
 This is the intended end-to-end experience. [What works today](#what-works-today) lists the pieces already implemented.
 
@@ -30,6 +34,8 @@ Ideomy combines Vault ownership, explicit knowledge structure, and bounded autom
 ## Try the development CLI
 
 Prerequisites: **Node.js 24** and **pnpm 12.13.0** (via Corepack). The full Core/bootstrap path currently targets macOS; CI also checks the repository on Ubuntu.
+
+The commands below check a development build; they do not exercise the full workflow described above.
 
 ```sh
 git clone https://github.com/ipastin/ideomy.git
@@ -75,7 +81,7 @@ The external Personal Vault is outside this repository. Content created independ
 
 <!--
 created: 21-10-26 09-18-58
-updated: 22-10-26 16-23-00
-version: 0.1.7
-commit: docs(readme): explain product experience
+updated: 22-10-26 16-45-00
+version: 0.1.8
+commit: docs(readme): clarify user workflow
 -->
