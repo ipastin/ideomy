@@ -30,7 +30,7 @@ import { z } from "zod";
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const projectId = entitySchemas.project.shape.id;
 const projectStatus = entitySchemas.project.shape.status;
-const ownerSchema = z.strictObject({ id: z.uuid(), pid: z.int().positive() });
+const pendingSchema = z.strictObject({ id: z.uuid() });
 const journalSchema = z.strictObject({
   version: z.literal(1),
   id: z.uuid(),
@@ -48,13 +48,14 @@ export type ProjectStatusJournal = z.infer<typeof journalSchema>;
 export type TransactionScope = {
   vaultRoot: string;
   vaultId: string;
+  /** The caller holds exclusive Core ownership of this directory during writes and recovery. */
   stateDirectory: string;
   propertyMapping?: Record<string, string>;
 };
 export type ProjectStatusChange = { projectId: string; status: string; expectedHash: string };
 export class TransactionError extends Error {
   constructor(
-    readonly code: "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED" | "TX-BUSY",
+    readonly code: "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED",
     message: string,
   ) {
     super(message);
@@ -159,7 +160,7 @@ function replaceNote(root: string, relative: string, temporary: string, bytes: B
 
 function files(directory: string, id: string) {
   return {
-    owner: path.join(directory, `${id}.owner`),
+    claim: path.join(directory, `${id}.claim`),
     journal: path.join(directory, `${id}.json`),
     snapshot: path.join(directory, `${id}.snapshot`),
   };
@@ -176,7 +177,7 @@ function saveJournal(file: string, journal: ProjectStatusJournal): ProjectStatus
 function finish(active: string, transaction: ReturnType<typeof files>): void {
   rmSync(transaction.snapshot, { force: true });
   rmSync(`${transaction.journal}.next`, { force: true });
-  rmSync(transaction.owner, { force: true });
+  rmSync(transaction.claim, { force: true });
   rmSync(active);
   syncDirectory(path.dirname(active));
 }
@@ -190,15 +191,15 @@ function readState<T>(file: string, schema: z.ZodType<T>): T | null {
   }
 }
 
-function claim(active: string, ownerFile: string, id: string): void {
-  writeDurable(ownerFile, JSON.stringify({ id, pid: process.pid }));
+function claim(active: string, claimFile: string, id: string): void {
+  writeDurable(claimFile, JSON.stringify({ id }));
   try {
-    // Publish a complete owner record without replacing a different transaction's claim.
-    linkSync(ownerFile, active);
+    // Publish a complete claim without replacing a different pending transaction.
+    linkSync(claimFile, active);
     syncDirectory(path.dirname(active));
   } catch (error) {
     if (!hasCode(error, "EEXIST")) throw error;
-    rmSync(ownerFile);
+    rmSync(claimFile);
     throw new TransactionError("TX-RECOVERY-REQUIRED", "A transaction already owns this Vault's journal.");
   }
 }
@@ -210,7 +211,7 @@ function stagedNote(file: string, id: string): string {
 /** Apply one typed Project status change. The caller provides the Vault's machine-local state directory. */
 export function commitProjectStatus(scope: TransactionScope, change: ProjectStatusChange): ProjectStatusJournal {
   const { vault, fingerprint, directory, active } = statePaths(scope);
-  if (readState(active, ownerSchema)) {
+  if (readState(active, pendingSchema)) {
     throw new TransactionError("TX-RECOVERY-REQUIRED", "Recover the pending Vault transaction before writing.");
   }
   const id = projectId.parse(change.projectId);
@@ -229,7 +230,7 @@ export function commitProjectStatus(scope: TransactionScope, change: ProjectStat
   const transactionId = randomUUID();
   const transaction = files(directory, transactionId);
   const file = notePath(vault, target.path);
-  claim(active, transaction.owner, transactionId);
+  claim(active, transaction.claim, transactionId);
   writeDurable(transaction.snapshot, target.note.raw);
   const journal = saveJournal(transaction.journal, {
     version: 1,
@@ -272,24 +273,16 @@ export function commitProjectStatus(scope: TransactionScope, change: ProjectStat
 /** Run on startup while holding exclusive Core ownership of the machine-local state directory. */
 export function recoverProjectStatus(scope: TransactionScope): ProjectStatusJournal | null {
   const { vault, fingerprint, directory, active } = statePaths(scope);
-  const owner = readState(active, ownerSchema);
-  if (!owner) return null;
-  if (owner.pid !== process.pid) {
-    try {
-      process.kill(owner.pid, 0);
-      throw new TransactionError("TX-BUSY", "The transaction owner is still running.");
-    } catch (error) {
-      if (!hasCode(error, "ESRCH")) throw error;
-    }
-  }
-  const transaction = files(directory, owner.id);
+  const pending = readState(active, pendingSchema);
+  if (!pending) return null;
+  const transaction = files(directory, pending.id);
   const journal = readState(transaction.journal, journalSchema);
   if (!journal) {
     // The first journal record is made durable before staging any Vault bytes.
     finish(active, transaction);
     return null;
   }
-  if (journal.id !== owner.id || journal.vaultFingerprint !== fingerprint) {
+  if (journal.id !== pending.id || journal.vaultFingerprint !== fingerprint) {
     throw new TransactionError("TX-RECOVERY-REQUIRED", "Pending transaction identity does not match this Vault.");
   }
   if (journal.state === "committed" || journal.state === "rolled_back") {

@@ -50,6 +50,7 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 
 function pending(): ProjectStatusJournal {
   const active = JSON.parse(readFileSync(path.join(journalDirectory, "active.json"), "utf8")) as { id: string };
+  expect(active).toEqual({ id: expect.any(String) });
   return JSON.parse(readFileSync(path.join(journalDirectory, `${active.id}.json`), "utf8")) as ProjectStatusJournal;
 }
 
