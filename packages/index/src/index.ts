@@ -1,6 +1,14 @@
 import { chmodSync, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
-import { hashRaw, type ParsedNote, scanVault } from "@ideomy/vault-io";
+import {
+  extractMarkdownDecisionSearch,
+  extractMarkdownEvidenceText,
+  extractMarkdownSection,
+  extractMarkdownWikiReferences,
+  hashRaw,
+  type ParsedNote,
+  scanVault,
+} from "@ideomy/vault-io";
 import Database from "better-sqlite3";
 import { migrations } from "./migrations.ts";
 
@@ -26,6 +34,7 @@ const requiredTables = [
   "documents",
   "chunks",
   "fts_chunks",
+  "fts_decisions",
   "transactions",
 ] as const;
 
@@ -35,12 +44,16 @@ function hasRequiredSchema(db: Database.Database): boolean {
     sql: string | null;
   }[];
   const tables = new Map(rows.map((row) => [row.name, row.sql]));
-  const ftsColumns = db.prepare("PRAGMA table_xinfo(fts_chunks)").all() as { name: string }[];
   const wikiColumns = db.prepare("PRAGMA table_info(wiki_links)").all() as { name: string }[];
   return (
     requiredTables.every((name) => tables.has(name)) &&
-    /^CREATE VIRTUAL TABLE[\s\S]*\bUSING\s+fts5\b/i.test(tables.get("fts_chunks") ?? "") &&
-    ["title", "content"].every((name) => ftsColumns.some((column) => column.name === name)) &&
+    ["fts_chunks", "fts_decisions"].every((table) => {
+      const columns = db.prepare(`PRAGMA table_xinfo(${table})`).all() as { name: string }[];
+      return (
+        /^CREATE VIRTUAL TABLE[\s\S]*\bUSING\s+fts5\b/i.test(tables.get(table) ?? "") &&
+        ["title", "content"].every((name) => columns.some((column) => column.name === name))
+      );
+    }) &&
     ["source_path", "target_path", "resolution"].every((name) => wikiColumns.some((column) => column.name === name)) &&
     ["aliases", "activity_at"].every((name) =>
       (db.prepare("PRAGMA table_info(documents)").all() as { name: string }[]).some((column) => column.name === name),
@@ -67,10 +80,13 @@ export interface SqliteStore {
   revision(): string | null;
   search(query: string): SearchHit[];
   searchTerms(query: string, operator?: "and" | "or"): TermSearchHit[];
+  searchDecisionTerms(query: string, operator: "and" | "or"): TermSearchHit[];
   notes(): IndexedNote[];
   lookupExact(query: string): LookupResult;
   edges(): IndexedEdge[];
   readAllowedContent(path: string, vaultFingerprint: string): string | null;
+  readAllowedEvidenceContent(path: string, vaultFingerprint: string): string | null;
+  readAllowedSection(path: string, vaultFingerprint: string, heading: string): IndexedSection | null;
   vaultFingerprint(): string | null;
   close(): void;
 }
@@ -84,6 +100,7 @@ export type IndexInput = {
 
 export type SearchHit = { path: string; entityId: string | null; title: string };
 export type TermSearchHit = SearchHit & { lexicalScore: number };
+export type IndexedSection = { heading: string; text: string; linkedPaths: string[] };
 export type IndexedNote = SearchHit & {
   basename: string;
   aliases: string[];
@@ -109,8 +126,8 @@ export type LookupResult =
   | { status: "ambiguous"; candidates: IndexedNote[] };
 export const indexFilename = "structured-index.sqlite";
 const relationResolutionVersion = 2;
-const graphIndexVersion = 1;
-const scopedRetrievalIndexVersion = 2;
+const graphIndexVersion = 4;
+const scopedRetrievalIndexVersion = 3;
 
 type Entry = { path: string; note: ParsedNote };
 
@@ -222,7 +239,7 @@ export class BetterSqliteStore implements SqliteStore {
     if (this.revision() === next) return next;
     this.db.transaction(() => {
       this.db.exec(
-        "DELETE FROM fts_chunks; DELETE FROM chunks; DELETE FROM relationships; DELETE FROM wiki_links; DELETE FROM file_state; DELETE FROM documents; DELETE FROM entities; DELETE FROM index_metadata;",
+        "DELETE FROM fts_decisions; DELETE FROM fts_chunks; DELETE FROM chunks; DELETE FROM relationships; DELETE FROM wiki_links; DELETE FROM file_state; DELETE FROM documents; DELETE FROM entities; DELETE FROM index_metadata;",
       );
       const entity = this.db.prepare("INSERT INTO entities VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
       const file = this.db.prepare("INSERT INTO file_state VALUES (?, ?, ?, ?)");
@@ -231,6 +248,7 @@ export class BetterSqliteStore implements SqliteStore {
       );
       const chunk = this.db.prepare("INSERT INTO chunks(path, ordinal, content) VALUES (?, 0, ?)");
       const fts = this.db.prepare("INSERT INTO fts_chunks(rowid, title, content) VALUES (?, ?, ?)");
+      const decisionsFts = this.db.prepare("INSERT INTO fts_decisions(rowid, title, content) VALUES (?, ?, ?)");
       const relation = this.db.prepare("INSERT INTO relationships VALUES (?, ?, ?, ?, ?, ?)");
       const wiki = this.db.prepare("INSERT INTO wiki_links VALUES (?, ?, ?, ?, ?)");
       for (const entry of entries) {
@@ -270,12 +288,17 @@ export class BetterSqliteStore implements SqliteStore {
         const content = entry.note.bodyBytes.toString("utf8");
         const result = chunk.run(entry.path, content);
         fts.run(result.lastInsertRowid, noteTitle.normalize("NFC"), content.normalize("NFC"));
+        if (id && props?.type === "decision") {
+          const visible = extractMarkdownDecisionSearch(content);
+          const visibleTitle = visible.title ?? path.basename(entry.path, ".md");
+          decisionsFts.run(result.lastInsertRowid, visibleTitle.normalize("NFC"), visible.content.normalize("NFC"));
+        }
       }
       for (const entry of entries) {
-        for (const [ordinal, link] of entry.note.structure.links.entries()) {
-          if (link.kind !== "wiki" || link.embed) continue;
-          const match = resolveReference(link.target, entries);
-          wiki.run(entry.path, ordinal, link.target, match.entry?.path ?? null, match.resolution);
+        const references = extractMarkdownWikiReferences(entry.note.bodyBytes.toString("utf8"));
+        for (const [ordinal, reference] of references.entries()) {
+          const match = resolveReference(reference, entries);
+          wiki.run(entry.path, ordinal, reference, match.entry?.path ?? null, match.resolution);
         }
         if (entry.note.kind !== "managed") continue;
         const props = entry.note.logicalProperties ?? {};
@@ -310,6 +333,18 @@ export class BetterSqliteStore implements SqliteStore {
   }
 
   searchTerms(query: string, operator: "and" | "or" = "and"): TermSearchHit[] {
+    return this.searchTermIndex("fts_chunks", query, operator);
+  }
+
+  searchDecisionTerms(query: string, operator: "and" | "or"): TermSearchHit[] {
+    return this.searchTermIndex("fts_decisions", query, operator);
+  }
+
+  private searchTermIndex(
+    table: "fts_chunks" | "fts_decisions",
+    query: string,
+    operator: "and" | "or",
+  ): TermSearchHit[] {
     const terms = [
       ...new Set(
         query
@@ -319,14 +354,15 @@ export class BetterSqliteStore implements SqliteStore {
       ),
     ];
     if (!terms.length) return [];
-    const statement = this.db.prepare(`SELECT f.rowid, d.path, d.entity_id AS entityId, d.title
-      FROM fts_chunks f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
-      WHERE fts_chunks MATCH ? ORDER BY d.path`);
+    const title = table === "fts_decisions" ? "f.title" : "d.title";
+    const statement = this.db.prepare(`SELECT f.rowid, d.path, d.entity_id AS entityId, ${title} AS title
+      FROM ${table} f JOIN chunks c ON c.id = f.rowid JOIN documents d ON d.path = c.path
+      WHERE ${table} MATCH ? ORDER BY d.path`);
     const expression = terms
       .map((term) => `"${term.replaceAll('"', '""')}"`)
       .join(operator === "and" ? " AND " : " OR ");
     const rows = statement.all(expression) as (SearchHit & { rowid: number })[];
-    const columnMatches = this.db.prepare("SELECT rowid FROM fts_chunks WHERE fts_chunks MATCH ?");
+    const columnMatches = this.db.prepare(`SELECT rowid FROM ${table} WHERE ${table} MATCH ?`);
     const matches = terms.map((term) =>
       (["title", "content"] as const).map(
         (column) =>
@@ -413,6 +449,28 @@ export class BetterSqliteStore implements SqliteStore {
           .get(notePath) as { content: string } | undefined
       )?.content ?? null
     );
+  }
+
+  readAllowedEvidenceContent(notePath: string, vaultFingerprint: string): string | null {
+    const body = this.readAllowedContent(notePath, vaultFingerprint);
+    return body === null ? null : extractMarkdownEvidenceText(body);
+  }
+
+  readAllowedSection(notePath: string, vaultFingerprint: string, heading: string): IndexedSection | null {
+    const body = this.readAllowedContent(notePath, vaultFingerprint);
+    const section = body === null ? null : extractMarkdownSection(body, heading);
+    if (!section?.text.trim()) return null;
+    const rows = this.db
+      .prepare(`SELECT target_ref AS ref, target_path AS path FROM wiki_links
+        WHERE source_path = ? AND resolution = 'resolved' AND target_path IS NOT NULL`)
+      .all(notePath) as { ref: string; path: string }[];
+    const resolved = new Map(rows.map(({ ref, path }) => [ref, path]));
+    const linkedPaths = new Set<string>();
+    for (const reference of section.wikiReferences) {
+      const target = resolved.get(reference);
+      if (target) linkedPaths.add(target);
+    }
+    return { heading: section.heading, text: section.text.trim(), linkedPaths: [...linkedPaths] };
   }
 
   close(): void {

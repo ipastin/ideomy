@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -15,6 +16,15 @@ const source = "21 Sources/Article — Intent and Information Architecture.md";
 const journal = "60 Journal/Daily/2026-10-06.md";
 const localOnly = "20 Knowledge/Private Local Only.md";
 const restrictedPerson = "30 People/Alex Example.md";
+
+it("runs the Project Decision pilot regression for both query forms", { timeout: 30_000 }, () => {
+  const results = execFileSync(
+    process.execPath,
+    ["--experimental-transform-types", path.resolve(fixtures, "../../scripts/run-retrieval-evals.ts")],
+    { encoding: "utf8", timeout: 25_000 },
+  );
+  expect(JSON.parse(results).cases.ids).toEqual(expect.arrayContaining(["ret-028", "ret-029"]));
+});
 
 it("builds a bounded Project Pack from incoming links with provenance and access filtering", () => {
   const directory = mkdtempSync(path.join(tmpdir(), "ideomy-project-pack-"));
