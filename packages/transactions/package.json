@@ -2,5 +2,13 @@
   "name": "@ideomy/transactions",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@ideomy/schema": "workspace:*",
+    "@ideomy/vault-io": "workspace:*",
+    "zod": "4.6.0"
+  }
 }

@@ -328,7 +328,17 @@ importers:
         specifier: 4.6.0
         version: 4.6.0
 
-  packages/transactions: {}
+  packages/transactions:
+    dependencies:
+      '@ideomy/schema':
+        specifier: workspace:*
+        version: link:../schema
+      '@ideomy/vault-io':
+        specifier: workspace:*
+        version: link:../vault-io
+      zod:
+        specifier: 4.6.0
+        version: 4.6.0
 
   packages/vault-io:
     dependencies:
