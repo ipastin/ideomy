@@ -15,7 +15,11 @@ import { describe, expect, it } from "vitest";
 import {
   createVaultIdentity,
   deriveVaultFingerprint,
+  extractMarkdownDecisionSearch,
+  extractMarkdownEvidenceText,
+  extractMarkdownSection,
   extractMarkdownStructure,
+  extractMarkdownWikiReferences,
   generateEntityId,
   hashRaw,
   normalizeProperties,
@@ -201,6 +205,109 @@ describe("M0.2 Vault I/O", () => {
     );
     expect(structure.autoIssues).toContain("mismatched AUTO end: a");
     expect(structure.autoSections).not.toContainEqual({ name: "a", begin: 1, end: 3 });
+  });
+
+  it("excludes Obsidian comments from section boundaries without swallowing literal markers", () => {
+    const visible = ["`%% [[Code]] %%` \\%\\% [[Primary]]", "", "```text", "%%", "[[Fenced]]", "```"].join("\r\n");
+    const body = ["%%", "## Why", "[[Hidden]]", "%%", "## Why", visible, "%%", "## Appendix", "[[HiddenTail]]"].join(
+      "\r\n",
+    );
+    const section = extractMarkdownSection(body, "Why");
+    expect(section?.text.trim()).toBe(visible);
+    expect(section?.wikiReferences).toEqual(["Primary"]);
+  });
+
+  it("renders wikilinks formed across removed comments as literal text", () => {
+    const body = [
+      "## Why",
+      "🧪 [[Other%% hidden %%Record]] and ![[Another%% hidden %%Record]].",
+      "[[HTML<!-- hidden -->Record]].",
+      "[[Primary|measurement]]",
+      "`[[Example%% literal %%Record]]`",
+      "## Appendix",
+      "[[Other Record]]",
+    ].join("\r\n");
+    const section = extractMarkdownSection(body, "Why");
+    expect(section?.text.trim()).toBe(
+      [
+        "🧪 \\[\\[Other Record]] and !\\[\\[Another Record]].",
+        "\\[\\[HTML Record]].",
+        "[[Primary|measurement]]",
+        "`[[Example%% literal %%Record]]`",
+      ].join("\r\n"),
+    );
+    expect(section?.wikiReferences).toEqual(["Primary"]);
+    expect(extractMarkdownEvidenceText(body)).toContain(section?.text.trim());
+  });
+
+  it("resolves wikilinks across inline emphasis and respects opaque Markdown", () => {
+    const line =
+      "[[Run _2025_ report|the **summary**]] \\[[escaped _target_]] `[[code _target_]]` [link [[label _target_]]](https://example.com)";
+    const body = `## Why\n${line}`;
+    const target = "Run _2025_ report";
+    expect(extractMarkdownWikiReferences(body)).toEqual([target]);
+    expect(extractMarkdownSection(body, "Why")?.wikiReferences).toEqual([target]);
+    expect(
+      extractMarkdownStructure(body)
+        .links.filter((link) => link.kind === "wiki")
+        .map((link) => link.target),
+    ).toEqual([target]);
+    expect(extractMarkdownDecisionSearch(body).content).toContain("the **summary**");
+    expect(extractMarkdownDecisionSearch(body).content).not.toContain("Run");
+  });
+
+  it("uses visible Decision text and link labels while ignoring hidden terms and destinations", () => {
+    const body = [
+      "%%",
+      "# HiddenTitle",
+      "```",
+      "%%",
+      "# Vi**sib**le title",
+      "",
+      "%% first %% [visible link](https://example.com/hiddenurl) %% second %% [[HiddenPath/Ident|visible alias]]",
+      "",
+      "<!-- HiddenHTML -->",
+      "",
+      "%% third %% ```text",
+      "%% VisibleCode %%",
+      "```",
+      "",
+      "[reference]: https://example.com/hiddendefinition",
+      "",
+      "%%",
+      "HiddenTail",
+    ].join("\r\n");
+    const decision = extractMarkdownDecisionSearch(body);
+    expect(decision.title).toBe("Visible title");
+    expect(decision.content).toContain("visible link");
+    expect(decision.content).toContain("visible alias");
+    expect(decision.content).toContain("VisibleCode");
+    expect(decision.content).not.toMatch(/hidden|first|second|third|ident/i);
+  });
+
+  it("removes HTML comments from evidence sections while preserving literal examples", () => {
+    const body = [
+      "## Why",
+      "<!-- obsolete rationale -->",
+      "",
+      "## Rationale",
+      "`<!-- literal example -->` and [[Primary]]. <!-- hidden note -->",
+    ].join("\r\n");
+    expect(extractMarkdownSection(body, "Why")?.text.trim()).toBe("");
+    const rationale = extractMarkdownSection(body, "Rationale");
+    expect(rationale?.text.trim()).toBe("`<!-- literal example -->` and [[Primary]].");
+    expect(rationale?.wikiReferences).toEqual(["Primary"]);
+    expect(extractMarkdownDecisionSearch("<!-- hidden --> Measured latency fell.").content).toBe(
+      "Measured latency fell.",
+    );
+  });
+
+  it("decodes HTML entities on both sides of wikilinks and in their labels", () => {
+    const decision = extractMarkdownDecisionSearch(
+      "Маяк API &#1080;нтеграция [[Private|R&amp;D]] &#x410;кт \\&amp; `&amp;` &missing;",
+    );
+    expect(decision.content).toBe("Маяк API интеграция R&D Акт &amp; &amp; &missing;");
+    expect(extractMarkdownDecisionSearch("&am[[Private|p;]]").content).toBe("&amp;");
   });
 
   it("plans only the AUTO payload while preserving BOM, CRLF, Unicode and user-owned bytes", () => {

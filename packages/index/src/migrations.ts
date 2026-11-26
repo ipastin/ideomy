@@ -40,4 +40,6 @@ export const migrations = [
    CREATE INDEX relationships_target_id ON relationships(target_id);
    CREATE INDEX wiki_links_target_path ON wiki_links(target_path);`,
   `ALTER TABLE documents ADD COLUMN capture_marker TEXT;`,
+  `CREATE VIRTUAL TABLE fts_decisions USING fts5(title, content, tokenize='unicode61 remove_diacritics 2');
+   DELETE FROM index_metadata WHERE key = 'revision';`,
 ] as const;

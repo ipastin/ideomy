@@ -1,8 +1,14 @@
+import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { BetterSqliteStore } from "../packages/index/src/index.ts";
-import { buildProjectContextPack, retrieveScoped } from "../packages/retrieval/src/index.ts";
+import {
+  buildProjectContextPack,
+  type PackItem,
+  retrieveProjectDecisionEvidence,
+  retrieveScoped,
+} from "../packages/retrieval/src/index.ts";
 
 type Case = {
   id: string;
@@ -30,7 +36,16 @@ type Case = {
   expected_relevant_count?: number;
   eligible_neighbors?: number;
   restricted_neighbors?: number;
+  decision_context?: string;
+  basis?: string;
+  target?: SyntheticDecision;
+  distractors?: SyntheticDecision[];
+  expected_why?: string;
+  expected_revisit?: string;
+  expected_measurement?: string;
 };
+
+type SyntheticDecision = { id: string; title: string; rationale: string };
 
 const root = path.resolve(import.meta.dirname, "..");
 const fixtureRoot = path.join(root, "fixtures/test-vault");
@@ -156,6 +171,29 @@ function prepareBase(vault: string): void {
   );
   for (const file of ["21 Sources/Processed Probe.md", journal, "01 Inbox/Manual Capture.md"])
     put(vault, file, `${read(vault, file)}\nrankingprobe\n`);
+  const decisionIds = new Set<string>();
+  for (const item of cases) {
+    if (!item.target) continue;
+    if (
+      item.metric !== "decision_why_recall@5" ||
+      item.expected_ids?.length !== 1 ||
+      item.expected_ids[0] !== item.target.id ||
+      !item.decision_context ||
+      !item.basis ||
+      item.distractors?.length !== 5
+    )
+      throw new Error(`${item.id}: invalid Decision why candidates`);
+    for (const [index, candidate] of [item.target, ...item.distractors].entries()) {
+      if (!candidate.id || !candidate.title || !candidate.rationale || decisionIds.has(candidate.id))
+        throw new Error(`${item.id}: invalid or duplicate Decision candidate`);
+      decisionIds.add(candidate.id);
+      put(
+        vault,
+        `40 Decisions/${index ? "AA" : "ZZ"} ${candidate.id}.md`,
+        `---\nideomy_schema: 1\nid: ${candidate.id}\ntype: decision\nstatus: accepted\ndate: 2026-10-03\nprimary_area: "[[Technology & AI]]"\ncreated: 2026-10-03T09:00:00+03:00\nupdated: 2026-10-03T09:00:00+03:00\nsensitivity: internal\nagent_access: allowed\n---\n# ${candidate.title}\n\nContext: ${item.decision_context}\n\n## Why\n${candidate.rationale}\n`,
+      );
+    }
+  }
 }
 
 function runBoundedCase(item: Case, directory: string): void {
@@ -197,6 +235,383 @@ function runBoundedCase(item: Case, directory: string): void {
   }
 }
 
+function runProjectDecisionCase(item: Case, directory: string): void {
+  const vault = path.join(directory, item.id);
+  const suffix = "__created-26-11-26_10-07-06__v1.0.0__test(pilot)__updated-26-11-26_10-07-06";
+  const link = (title: string) => `[[${title}${suffix}]]`;
+  const writeNote = (
+    title: string,
+    type: "project" | "decision" | "record",
+    sequence: string,
+    status: string,
+    body: string | null,
+    properties: Record<string, unknown> = {},
+  ) => {
+    const [folder, prefix] = {
+      project: ["10 Projects", "prj"],
+      decision: ["40 Decisions", "dec"],
+      record: ["43 Records", "rec"],
+    }[type];
+    const metadata = {
+      ideomy_schema: 1,
+      id: `${prefix}_01M4K11NG0XKJFG87XA758PB${sequence}`,
+      type,
+      status,
+      primary_area: null,
+      created: "2026-11-26T10:07:06+03:00",
+      updated: "2026-11-26T10:07:06+03:00",
+      sensitivity: "internal",
+      agent_access: "allowed",
+      artifact_created: "26-11-26 10-07-06",
+      artifact_updated: "26-11-26 10-07-06",
+      version: "1.0.0",
+      commit: "test(retrieval): cover synthetic project decision evidence",
+      ...properties,
+    };
+    const yaml = Object.entries(metadata)
+      .map(([key, value]) => `${key}: ${JSON.stringify(value)}`)
+      .join("\n");
+    const file = `${folder}/${title}${suffix}.md`;
+    const markdown = body === null ? "\n" : `# ${title}\n\n${body}\n`;
+    put(vault, file, `---\n${yaml}\n---\n${markdown}`);
+    return file;
+  };
+  const mayak = "Маяк — возвраты";
+  const north = "Север — возвраты";
+  const measurement = "Маяк — сверка _стабильных_ идентификаторов";
+  const outsideWhy = "Маяк — посторонняя сверка";
+  const denied = "Маяк — закрытая сверка";
+  const unverified = "Маяк — черновая сверка";
+  const empty = "Маяк — сверка без измерений";
+  const hidden = "Скрытая черновая причина";
+  const acceptedTitle = "Маяк — отложить API интеграцию";
+  const date = "2026-11-20";
+  writeNote(mayak, "project", "01", "active", "## Outcome\nПилот в пяти магазинах.", {
+    outcome: "Пилот в пяти магазинах",
+  });
+  writeNote(north, "project", "02", "active", "## Outcome\nПилот на складе.", { outcome: "Пилот на складе" });
+  const accepted = writeNote(
+    acceptedTitle,
+    "decision",
+    "03",
+    "accepted",
+    [
+      "```markdown\n## Why\nПример заголовка в коде.\n```",
+      `%%\n## Why\n${hidden}: ${link(outsideWhy)}.\n%%`,
+      "## Decision\nДля пилота использовать ежедневный CSV-импорт возвратов.",
+      [
+        "## Why",
+        "У 9 из 40 тестовых возвратов не было стабильного идентификатора.",
+        `Первичная сверка: ${link(measurement)} и ${link(denied)}. Черновые данные: ${link(unverified)}.`,
+        `Требуется заполнить ${link(empty)}. %%${hidden}: ${link(outsideWhy)}.%%`,
+        "",
+        `[Пример ${link(outsideWhy)}](https://example.com/pilot) и [сноска ${link(outsideWhy)}][reference].`,
+        "",
+        `${link(outsideWhy)}[reference]`,
+      ].join("\n"),
+      `## Revisit\nДва последовательных прогона без несопоставленных ID.\n\n## Appendix\n${link(outsideWhy)}\n\n[reference]: https://example.com/pilot`,
+    ].join("\n\n"),
+    { date, projects: [link(mayak)] },
+  );
+  const lexicalBait = "Маяк API интеграция. Включить прямую API интеграцию.";
+  const draft = writeNote("Маяк — включить API интеграцию", "decision", "05", "proposed", lexicalBait, {
+    date: "2026-11-24",
+    projects: [link(mayak)],
+  });
+  writeNote("Север — API интеграция", "decision", "06", "accepted", lexicalBait, { date, projects: [link(north)] });
+  writeNote("Маяк — упоминание проекта", "decision", "07", "accepted", `${lexicalBait}\n${link(mayak)}`, { date });
+  const competitorTitle = "Кассовые чеки — перенести сверку";
+  const competitor = writeNote(
+    competitorTitle,
+    "decision",
+    "04",
+    "accepted",
+    `## Decision\nСверять чеки по пятницам.\n\n## Why\nТак согласовано с бухгалтерией. ${link(outsideWhy).replace("]]", "|сверка чеков]]")}.\n\n## Revisit\nЧерез месяц.`,
+    { date, projects: [link(mayak)] },
+  );
+  put(
+    vault,
+    competitor,
+    readFileSync(path.join(vault, competitor), "utf8").replace(
+      `# ${competitorTitle}`,
+      `%%\n# Маяк API интеграция интеграцию\n%%\n\n# ${competitorTitle}`,
+    ),
+  );
+  const primary = writeNote(
+    measurement,
+    "record",
+    "08",
+    "verified",
+    "## Measurement\n31 из 40 возвратов сопоставили со стабильным ID, у 9 стабильного ID не было.\n\nПример: [[Сводка%% черновик %%замеров]].",
+    { date, subtype: "evidence" },
+  );
+  writeNote(outsideWhy, "record", "09", "verified", "Не относится к обоснованию.", { date, subtype: "evidence" });
+  writeNote(denied, "record", "10", "verified", "Закрытое измерение.", {
+    date,
+    subtype: "evidence",
+    agent_access: "denied",
+  });
+  writeNote(unverified, "record", "11", "recorded", "Непроверенное измерение.", { date, subtype: "evidence" });
+  writeNote(empty, "record", "12", "verified", null, { date, subtype: "evidence" });
+
+  if (
+    !item.query ||
+    !item.project_id ||
+    item.expected_ids?.length !== 2 ||
+    !item.expected_why ||
+    !item.expected_revisit ||
+    !item.expected_measurement
+  )
+    throw new Error(`${item.id}: incomplete Project Decision evidence golden`);
+  const store = new BetterSqliteStore(path.join(directory, `${item.id}.sqlite`));
+  try {
+    const revision = store.rebuild({ vaultRoot: vault, vaultId: "synthetic-decision", vaultFingerprint: fingerprint });
+    const access = { purpose: "agent_context", vaultFingerprint: fingerprint, expectedRevision: revision } as const;
+    const rawMatches = new Set(store.searchTerms(item.query).map(({ path }) => path));
+    requireCase(
+      rawMatches.has(draft) && rawMatches.has(competitor),
+      item.id,
+      "competitive draft or same-Project accepted Decision missing from raw search",
+    );
+    requireCase(
+      store.searchDecisionTerms(item.query, "or").every((hit) => hit.path !== competitor),
+      item.id,
+      "hidden terms made the same-Project competitor eligible for Decision search",
+    );
+    const result = retrieveProjectDecisionEvidence(store, item.project_id, item.query, access);
+    const rawHash = (file: string) => {
+      const raw = readFileSync(path.join(vault, file));
+      return createHash("sha256").update(raw).digest("hex");
+    };
+    const decisionRef = {
+      entityId: item.expected_ids[0],
+      path: accepted,
+      hash: rawHash(accepted),
+    };
+    const recordRef = {
+      entityId: item.expected_ids[1],
+      path: primary,
+      hash: rawHash(primary),
+    };
+    const cites = (actual: PackItem["source"] | undefined, expected: typeof decisionRef) =>
+      actual?.entityId === expected.entityId && actual?.path === expected.path && actual?.hash === expected.hash;
+    requireCase(
+      Boolean(
+        result?.projectId === item.project_id &&
+          result.vaultFingerprint === fingerprint &&
+          result.indexRevision === revision &&
+          !result.truncated &&
+          result.decision.text.includes("ежедневный CSV-импорт") &&
+          result.decision.trust === "untrusted_data" &&
+          result.decision.source.heading === "Decision" &&
+          cites(result.decision.source, decisionRef),
+      ),
+      item.id,
+      "wrong accepted Project Decision or provenance",
+    );
+    requireCase(
+      Boolean(
+        result?.why?.text.startsWith(item.expected_why) &&
+          !result.why.text.includes(hidden) &&
+          result.why.trust === "untrusted_data" &&
+          result.why.source.heading === "Why" &&
+          cites(result.why.source, decisionRef),
+      ),
+      item.id,
+      "Why excerpt or provenance mismatch",
+    );
+    requireCase(
+      Boolean(
+        result?.revisit &&
+          result.revisit.text === item.expected_revisit &&
+          result.revisit.trust === "untrusted_data" &&
+          result.revisit.source.heading === "Revisit" &&
+          cites(result.revisit.source, decisionRef),
+      ),
+      item.id,
+      "Revisit excerpt or provenance mismatch",
+    );
+    requireCase(
+      Boolean(
+        result?.records.length === 1 &&
+          result.records[0]?.text.includes(item.expected_measurement) &&
+          result.records[0].text.includes("\\[\\[Сводка замеров]]") &&
+          result.records[0].trust === "untrusted_data" &&
+          cites(result.records[0].source, recordRef),
+      ),
+      item.id,
+      "primary verified Record missing, unexpected Record included, or provenance mismatch",
+    );
+    for (const [changed, expectedCode] of [
+      [{ vaultFingerprint: "wrong" }, "RETRIEVAL-001"],
+      [{ expectedRevision: "stale" }, "RETRIEVAL-002"],
+    ] as const) {
+      let rejected = false;
+      try {
+        retrieveProjectDecisionEvidence(store, item.project_id, item.query, { ...access, ...changed });
+      } catch (error) {
+        rejected = error instanceof Error && "code" in error && error.code === expectedCode;
+      }
+      requireCase(rejected, item.id, "wrong Vault or stale Decision evidence revision returned");
+    }
+
+    const hiddenRecords = ["%%\nЧерновая сверка.\n%%", "<!-- Черновая сверка. -->"].map((comment, i) => {
+      const title = `Маяк — скрытая сверка ${i + 1}`;
+      const file = writeNote(title, "record", String(13 + i), "verified", null, { date, subtype: "evidence" });
+      put(vault, file, `${readFileSync(path.join(vault, file), "utf8")}${comment}\n`);
+      return title;
+    });
+    const extraRecords = Array.from({ length: 6 }, (_, i) => `Маяк — повторная сверка ${i + 1}`);
+    const fullBudget = [
+      primary,
+      ...extraRecords.map((title, i) =>
+        writeNote(title, "record", String(15 + i), "verified", "## Measurement\n40 из 40.", {
+          date,
+          subtype: "evidence",
+        }),
+      ),
+    ];
+    const regressions = [
+      {
+        name: "comment must not assemble a wikilink resolved in Appendix",
+        body: [
+          "## Why",
+          `[%% пояснение %%${link(outsideWhy).slice(1)}`,
+          link(outsideWhy).replace(" ", "%% пояснение %%"),
+          link(measurement),
+        ].join("\n"),
+        expected: [primary],
+        escapedLink: `\\[\\[${link(outsideWhy).slice(2)}`,
+      },
+      {
+        name: "a fence inside a comment must not swallow visible rationale evidence",
+        body: [
+          "%%",
+          "```",
+          hidden,
+          "%%",
+          "## Why",
+          "Измерение ниже.",
+          "",
+          "```",
+          "%%",
+          "```",
+          "",
+          link(measurement),
+        ].join("\n"),
+        expected: [primary],
+      },
+      {
+        name: "an HTML-only Why must fall back to Rationale and hidden Revisit text must stay out of the budget",
+        body: [
+          "## Why",
+          "<!-- Obsolete rationale -->",
+          "## Rationale",
+          link(measurement),
+          "## Revisit",
+          `<!-- ${"Черновик. ".repeat(160)} -->`,
+          item.expected_revisit,
+        ].join("\n\n"),
+        expected: [primary],
+        whyHeading: "Rationale",
+        revisitText: item.expected_revisit,
+      },
+      {
+        name: "Records containing only comments must not displace visible evidence at the limit",
+        body: `## Why\n${[...hiddenRecords, measurement, ...extraRecords].map(link).join("\n")}`,
+        expected: fullBudget,
+      },
+    ];
+    for (const { name, body, expected, escapedLink, whyHeading, revisitText } of regressions) {
+      writeNote(acceptedTitle, "decision", "03", "accepted", `${body}\n\n## Appendix\n${link(outsideWhy)}`, {
+        date,
+        projects: [link(mayak)],
+      });
+      const expectedRevision = store.rebuild({
+        vaultRoot: vault,
+        vaultId: "synthetic-decision",
+        vaultFingerprint: fingerprint,
+      });
+      const evidence = retrieveProjectDecisionEvidence(store, item.project_id, item.query, {
+        ...access,
+        expectedRevision,
+      });
+      requireCase(
+        Boolean(
+          evidence?.why &&
+            (whyHeading === undefined || evidence.why.source.heading === whyHeading) &&
+            (revisitText === undefined || evidence.revisit?.text === revisitText) &&
+            (escapedLink === undefined || evidence.why.text.includes(escapedLink)) &&
+            !evidence.truncated &&
+            evidence.records.length === expected.length &&
+            evidence.records.every(
+              ({ source }, i) => source.path === expected[i] && source.hash === rawHash(source.path),
+            ),
+        ),
+        item.id,
+        name,
+      );
+    }
+
+    const encodedQuery = item.query.replace("интеграц", "&#1080;нтеграц");
+    const rationale = `${encodedQuery} ${link(measurement)}`;
+    writeNote(
+      acceptedTitle,
+      "decision",
+      "03",
+      "accepted",
+      `## Decision\nСохраняем CSV.\n\n## Why\n${rationale}\n\n## Revisit\n${item.expected_revisit}`,
+      { date, projects: [link(mayak)] },
+    );
+    put(
+      vault,
+      accepted,
+      readFileSync(path.join(vault, accepted), "utf8").replace(`# ${acceptedTitle}`, "# Подключение CSV"),
+    );
+    const paymentTitle = item.query.endsWith("интеграцию") ? "Перенести интеграцию платежей" : "Интеграция платежей";
+    writeNote(
+      competitorTitle,
+      "decision",
+      "04",
+      "accepted",
+      `## Decision\nПеренести оплату картой.\n\n## Why\nСогласовано с бухгалтерией. ${link(outsideWhy)}.`,
+      { date, projects: [link(mayak)] },
+    );
+    put(
+      vault,
+      competitor,
+      readFileSync(path.join(vault, competitor), "utf8").replace(`# ${competitorTitle}`, `# ${paymentTitle}`),
+    );
+    const entityRevision = store.rebuild({
+      vaultRoot: vault,
+      vaultId: "synthetic-decision",
+      vaultFingerprint: fingerprint,
+    });
+    requireCase(
+      store.searchDecisionTerms(item.query, "or").some(({ path }) => path === competitor),
+      item.id,
+      "same-Project accepted competitor missing from partial Decision matches",
+    );
+    const entityEvidence = retrieveProjectDecisionEvidence(store, item.project_id, item.query, {
+      ...access,
+      expectedRevision: entityRevision,
+    });
+    requireCase(
+      Boolean(
+        entityEvidence?.why?.text === rationale &&
+          cites(entityEvidence.decision.source, { ...decisionRef, hash: rawHash(accepted) }) &&
+          entityEvidence.revisit?.text === item.expected_revisit &&
+          entityEvidence.records.length === 1 &&
+          cites(entityEvidence.records[0]?.source, recordRef),
+      ),
+      item.id,
+      "an HTML entity next to a wikilink let the same-Project competitor win",
+    );
+  } finally {
+    store.close();
+  }
+}
+
 function run(): void {
   const directory = mkdtempSync(path.join(tmpdir(), "ideomy-retrieval-evals-"));
   const vault = path.join(directory, "vault");
@@ -211,6 +626,7 @@ function run(): void {
   let vaultFailures = 0,
     privacyFailures = 0;
   const passed: string[] = [];
+  const whyCompetition: { caseId: string; expectedRank: number; matchedDistractors: number }[] = [];
   try {
     prepareBase(vault);
     const store = new BetterSqliteStore(path.join(directory, "index.sqlite"));
@@ -231,12 +647,18 @@ function run(): void {
         });
       if (new Set(cases.map((item) => item.id)).size !== cases.length)
         throw new Error("Golden case IDs must be unique.");
+      const whyIds = cases
+        .filter((item) => item.metric === "decision_why_recall@5")
+        .flatMap((item) => item.expected_ids ?? []);
+      if (whyIds.length !== new Set(whyIds).size)
+        throw new Error("Decision why expected IDs must represent distinct decisions.");
       for (const item of cases) {
         if (!item.id || !item.metric) throw new Error("Golden case is missing id or metric.");
         const before = failures.length;
         const kind = item.kind ?? "search";
         if (kind === "search") {
-          const hits = local(item.query ?? "").hits.slice(0, 5);
+          const allHits = local(item.query ?? "").hits;
+          const hits = allHits.slice(0, 5);
           const ids = new Set(hits.map((hit) => hit.entityId));
           const found = (item.expected_ids ?? []).filter((id) => ids.has(id)).length;
           requireCase(found === item.expected_ids?.length, item.id, "expected search ID absent from top 5");
@@ -245,6 +667,16 @@ function run(): void {
           if (item.metric === "decision_why_recall@5") {
             whyFound += found;
             whyExpected += item.expected_ids?.length ?? 0;
+            if (item.distractors) {
+              const candidates = new Set(allHits.map((hit) => hit.entityId));
+              const matchedDistractors = item.distractors.filter((candidate) => candidates.has(candidate.id)).length;
+              requireCase(matchedDistractors === 5, item.id, "fewer than five competing distractors matched the query");
+              whyCompetition.push({
+                caseId: item.id,
+                expectedRank: allHits.findIndex((hit) => hit.entityId === item.expected_ids?.[0]) + 1,
+                matchedDistractors,
+              });
+            }
           }
         } else if (kind === "exact_lookup") {
           exactTotal++;
@@ -275,6 +707,8 @@ function run(): void {
           packExpected += item.expected_ids?.length ?? 0;
         } else if (kind === "project_pack_graph_bound") {
           runBoundedCase(item, directory);
+        } else if (kind === "project_decision_evidence") {
+          runProjectDecisionCase(item, directory);
         } else if (kind === "area_tiers") {
           const hits = local(item.query ?? "", { kind: "area", areaId: item.area_id ?? "" }).hits;
           const primary = hits.findIndex(
@@ -451,6 +885,7 @@ function run(): void {
     ];
     const report = {
       cases: { passed: passed.length, total: cases.length, ids: passed, failures },
+      whyCompetition,
       metrics,
       thresholdsFile: "evals/thresholds.json",
       applicableThresholdsPassed: checks.every(Boolean) && failures.length === 0,

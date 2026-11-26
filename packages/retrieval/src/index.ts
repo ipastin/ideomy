@@ -1,5 +1,5 @@
 import { traverseProject } from "@ideomy/graph";
-import type { IndexedNote, SqliteStore } from "@ideomy/index";
+import type { IndexedNote, SqliteStore, TermSearchHit } from "@ideomy/index";
 
 export type PackItem = {
   text: string;
@@ -34,6 +34,19 @@ export type AccessContext = {
   purpose: "agent_context";
   vaultFingerprint: string;
   expectedRevision: string;
+};
+
+type DecisionEvidenceItem = PackItem & { source: PackItem["source"] & { heading?: string } };
+
+export type ProjectDecisionEvidence = {
+  projectId: string;
+  vaultFingerprint: string;
+  indexRevision: string;
+  decision: DecisionEvidenceItem;
+  why: DecisionEvidenceItem | null;
+  revisit: DecisionEvidenceItem | null;
+  records: PackItem[];
+  truncated: boolean;
 };
 
 export type ScopedRequest = {
@@ -79,6 +92,26 @@ export class RetrievalError extends Error {
 const allowed = (note: IndexedNote): boolean =>
   note.agentAccess === "allowed" && ["public", "internal", "private"].includes(note.sensitivity);
 
+function checkedRevision(
+  store: SqliteStore,
+  { vaultFingerprint, expectedRevision }: Pick<AccessContext, "vaultFingerprint" | "expectedRevision">,
+): string {
+  if (!vaultFingerprint || vaultFingerprint !== store.vaultFingerprint())
+    throw new RetrievalError("RETRIEVAL-001", "Wrong Vault fingerprint.");
+  const revision = store.revision();
+  if (!revision || revision !== expectedRevision)
+    throw new RetrievalError("RETRIEVAL-002", "Index revision is missing or stale.");
+  return revision;
+}
+
+function eligibleMatches<T>(
+  search: (operator: "and" | "or") => TermSearchHit[],
+  select: (hit: TermSearchHit) => T[],
+): T[] {
+  const matches = search("and").flatMap(select);
+  return matches.length ? matches : search("or").flatMap(select);
+}
+
 const candidateSection = (note: IndexedNote): (typeof candidateSections)[number] | null =>
   note.type === "decision" && note.status === "accepted"
     ? "recentDecisions"
@@ -110,11 +143,7 @@ export function retrieveScoped(
   request: ScopedRequest & { purpose: "local_discovery" },
 ): Extract<ScopedResult, { purpose: "local_discovery" }>;
 export function retrieveScoped(store: SqliteStore, request: ScopedRequest): ScopedResult {
-  const revision = store.revision();
-  if (!request.vaultFingerprint || request.vaultFingerprint !== store.vaultFingerprint())
-    throw new RetrievalError("RETRIEVAL-001", "Wrong Vault fingerprint.");
-  if (!revision || revision !== request.expectedRevision)
-    throw new RetrievalError("RETRIEVAL-002", "Index revision is missing or stale.");
+  const revision = checkedRevision(store, request);
   const root = request.confirmedInboxRoot;
   if (
     root !== undefined &&
@@ -139,8 +168,9 @@ export function retrieveScoped(store: SqliteStore, request: ScopedRequest): Scop
     }
   }
   const byPath = new Map(notes.map((note) => [note.path, note]));
-  const rank = (operator: "and" | "or") =>
-    store.searchTerms(request.query, operator).flatMap((hit) => {
+  const ranked = eligibleMatches(
+    (operator) => store.searchTerms(request.query, operator),
+    (hit) => {
       const note = byPath.get(hit.path);
       if (!note || (note.kind === "managed" && note.agentAccess === "denied")) return [];
       const scopeReason: ScopedMetadata["scopeReason"] | undefined = areaId ? areaReason.get(note.path) : "unscoped";
@@ -160,9 +190,8 @@ export function retrieveScoped(store: SqliteStore, request: ScopedRequest): Scop
       if (request.purpose === "agent_context" && !allowed(note)) return [];
       const prior = sourceKind === "raw_inbox" || sourceKind === "raw_web_capture" ? 0 : authority(note);
       return [{ note, sourceKind, scopeReason, score: hit.lexicalScore * 10 + prior }];
-    });
-  const ranked = rank("and");
-  if (!ranked.length) ranked.push(...rank("or"));
+    },
+  );
   ranked.sort(
     (a, b) =>
       (a.scopeReason === "primary_area" ? 0 : a.scopeReason === "related_areas" ? 1 : 2) -
@@ -200,6 +229,83 @@ export function retrieveScoped(store: SqliteStore, request: ScopedRequest): Scop
   };
 }
 
+export function retrieveProjectDecisionEvidence(
+  store: SqliteStore,
+  projectId: string,
+  query: string,
+  access: AccessContext,
+): ProjectDecisionEvidence | null {
+  if (access.purpose !== "agent_context") throw new RetrievalError("RETRIEVAL-001", "Unsupported context purpose.");
+  const indexRevision = checkedRevision(store, access);
+  const { vaultFingerprint } = access;
+  const notes = store.notes();
+  const project = notes.find((note) => note.type === "project" && note.entityId === projectId);
+  if (!project || !allowed(project)) return null;
+
+  const byPath = new Map(notes.map((note) => [note.path, note]));
+  const relatedPaths = new Set(
+    store.edges().flatMap((edge) => {
+      if (edge.kind !== "typed") return [];
+      if (edge.property === "projects" && edge.targetPath === project.path) return [edge.sourcePath];
+      if (edge.property === "decisions" && edge.sourcePath === project.path) return [edge.targetPath];
+      return [];
+    }),
+  );
+  const candidates = eligibleMatches(
+    (operator) => store.searchDecisionTerms(query, operator),
+    ({ path, lexicalScore, title }) => {
+      const note = byPath.get(path);
+      return note?.type === "decision" && note.status === "accepted" && relatedPaths.has(path) && allowed(note)
+        ? [{ note, lexicalScore, title }]
+        : [];
+    },
+  );
+  const selected = candidates.sort(
+    (a, b) => b.lexicalScore - a.lexicalScore || (a.note.path < b.note.path ? -1 : a.note.path > b.note.path ? 1 : 0),
+  )[0];
+  if (!selected) return null;
+  const decisionPath = selected.note.path;
+
+  const decision = store.readAllowedSection(decisionPath, vaultFingerprint, "Decision");
+  const why =
+    store.readAllowedSection(decisionPath, vaultFingerprint, "Why") ??
+    store.readAllowedSection(decisionPath, vaultFingerprint, "Rationale");
+  const revisit = store.readAllowedSection(decisionPath, vaultFingerprint, "Revisit");
+  const maxRecords = 10 - 3; // Reserve entries for Decision, Why, and Revisit.
+  let truncated = false;
+  const excerpt = (note: IndexedNote, text: string, heading?: string): DecisionEvidenceItem => {
+    const points = Array.from(text);
+    if (points.length > 1200) truncated = true;
+    return {
+      text: points.slice(0, 1200).join(""),
+      trust: "untrusted_data",
+      source: { entityId: note.entityId, path: note.path, hash: note.hash, ...(heading && { heading }) },
+    };
+  };
+  const records: PackItem[] = [];
+  for (const path of why?.linkedPaths ?? []) {
+    const note = byPath.get(path);
+    if (note?.type !== "record" || note.status !== "verified" || !allowed(note)) continue;
+    const text = store.readAllowedEvidenceContent(note.path, vaultFingerprint);
+    if (!text?.trim()) continue;
+    if (records.length === maxRecords) {
+      truncated = true;
+      break;
+    }
+    records.push(excerpt(note, text));
+  }
+  return {
+    projectId,
+    vaultFingerprint,
+    indexRevision,
+    decision: excerpt(selected.note, decision?.text ?? selected.title, decision?.heading),
+    why: why ? excerpt(selected.note, why.text, why.heading) : null,
+    revisit: revisit ? excerpt(selected.note, revisit.text, revisit.heading) : null,
+    records,
+    truncated,
+  };
+}
+
 const firstParagraph = (body: string): string =>
   body
     .split(/\r?\n/)
@@ -223,11 +329,7 @@ export function buildProjectContextPack(
   access: AccessContext,
 ): ProjectContextPack {
   if (access.purpose !== "agent_context") throw new RetrievalError("RETRIEVAL-001", "Unsupported context purpose.");
-  const revision = store.revision();
-  if (!access.vaultFingerprint || access.vaultFingerprint !== store.vaultFingerprint())
-    throw new RetrievalError("RETRIEVAL-001", "Wrong Vault fingerprint.");
-  if (!revision || revision !== access.expectedRevision)
-    throw new RetrievalError("RETRIEVAL-002", "Index revision is missing or stale.");
+  const revision = checkedRevision(store, access);
   const graph = traverseProject(store, projectId, (note) => allowed(note) && candidateSection(note) !== null);
   if (!allowed(graph.root)) throw new RetrievalError("RETRIEVAL-003", "Project is not eligible for agent context.");
   const sections: ProjectContextPack["sections"] = {

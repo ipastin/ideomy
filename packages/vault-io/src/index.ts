@@ -5,7 +5,14 @@ import { entitySchemas, type ManagedEntityType, typePrefixes } from "@ideomy/sch
 import YAML, { isMap, isScalar } from "yaml";
 import { extractMarkdownStructure, type MarkdownStructure } from "./links.ts";
 
-export { extractMarkdownStructure, type MarkdownStructure } from "./links.ts";
+export {
+  extractMarkdownDecisionSearch,
+  extractMarkdownEvidenceText,
+  extractMarkdownSection,
+  extractMarkdownStructure,
+  extractMarkdownWikiReferences,
+  type MarkdownStructure,
+} from "./links.ts";
 
 export type VaultDiagnostic = {
   code: string;

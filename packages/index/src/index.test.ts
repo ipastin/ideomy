@@ -40,7 +40,7 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     const before = readFileSync(path.join(f.vaultRoot, project));
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(3);
+      expect(store.version).toBe(migrations.length);
       const first = store.rebuild(f.input);
       expect(store.rebuild(f.input)).toBe(first);
       expect(inspectIndex(f.databasePath, first)).toBe("current");
@@ -73,12 +73,12 @@ it("migrates, rebuilds deterministically, resolves relations, and searches Russi
     expect(readFileSync(path.join(f.vaultRoot, project))).toEqual(before);
     const reopened = new BetterSqliteStore(f.databasePath);
     try {
-      expect(reopened.version).toBe(3);
+      expect(reopened.version).toBe(migrations.length);
     } finally {
       reopened.close();
     }
     const future = new Database(f.databasePath);
-    future.pragma("user_version = 4");
+    future.pragma(`user_version = ${migrations.length + 1}`);
     future.close();
     expect(() => new BetterSqliteStore(f.databasePath)).toThrowError(expect.objectContaining({ code: "INDEX-002" }));
   } finally {
@@ -118,6 +118,31 @@ it("looks up normalized names without hiding collisions and indexes resolved wik
         candidates: [{ path: area }, { path: "Other/Collision.md" }],
       });
       expect(store.lookupExact(projectId)).toMatchObject({ status: "found", note: { path: project } });
+    } finally {
+      store.close();
+    }
+  } finally {
+    rmSync(f.directory, { recursive: true, force: true });
+  }
+});
+
+it("indexes the same body wikilinks with and without a literal Obsidian comment marker", () => {
+  const f = syntheticVault();
+  try {
+    const sources = ["Plain.md", "Literal marker.md"] as const;
+    const body = `[[${path.basename(goal, ".md")}]]\n\n[See [[Technology & AI]]](https://example.com/source)\n\n![[Technology & AI]]\n`;
+    writeFileSync(path.join(f.vaultRoot, sources[0]), body);
+    writeFileSync(path.join(f.vaultRoot, sources[1]), `${body}\nExample: \`%%\`\n`);
+    const store = new BetterSqliteStore(f.databasePath);
+    try {
+      store.rebuild(f.input);
+      for (const source of sources) {
+        const targets = store.edges().filter((edge) => edge.kind === "wiki" && edge.sourcePath === source);
+        expect(
+          targets.map((edge) => edge.targetPath),
+          source,
+        ).toEqual([goal]);
+      }
     } finally {
       store.close();
     }
@@ -169,7 +194,7 @@ it("upgrades the disposable v1 index and fails closed on ambiguous wikilinks", (
     writeFileSync(collision, "# Synthetic unmanaged\n");
     const store = new BetterSqliteStore(f.databasePath);
     try {
-      expect(store.version).toBe(3);
+      expect(store.version).toBe(migrations.length);
       const revision = store.rebuild(f.input);
       expect(inspectIndex(f.databasePath, revision)).toBe("current");
       expect(store.edges().some((edge) => edge.kind === "wiki" && edge.sourcePath === project)).toBe(false);
