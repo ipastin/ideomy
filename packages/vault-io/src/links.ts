@@ -142,21 +142,38 @@ export function extractMarkdownDecisionSearch(body: string): { title: string | n
   return { title, content: parts.join("\n") };
 }
 
-export function extractMarkdownEvidenceText(body: string): string {
-  if (!body.includes("%%") && !body.includes("<!--")) return body;
-  const { text, tree } = parseEvidenceMarkdown(body);
-  let visible = "";
-  let cursor = 0;
-  for (const node of markdownNodes(tree)) {
+type EvidenceEdit = { start: number; end: number; replacement: string };
+
+function* htmlCommentEdits(root: Nodes, text: string): Iterable<EvidenceEdit> {
+  for (const node of markdownNodes(root)) {
     const start = node.position?.start.offset;
     const end = node.position?.end.offset;
     if (node.type !== "html" || start === undefined || end === undefined) continue;
     for (const match of text.slice(start, end).matchAll(/<!--[\s\S]*?(?:-->|$)/g)) {
-      visible += text.slice(cursor, start + match.index) + match[0].replace(/[^\r\n]+/g, " ");
-      cursor = start + match.index + match[0].length;
+      const offset = start + match.index;
+      yield {
+        start: offset,
+        end: offset + match[0].length,
+        replacement: match[0].match(/\r\n|\r|\n/)?.[0] ?? " ",
+      };
     }
   }
-  return visible + text.slice(cursor);
+}
+
+function renderEvidenceText(text: string, start: number, end: number, edits: Iterable<EvidenceEdit>): string {
+  let visible = "";
+  let cursor = start;
+  for (const edit of edits) {
+    visible += text.slice(cursor, edit.start) + edit.replacement;
+    cursor = edit.end;
+  }
+  return visible + text.slice(cursor, end);
+}
+
+export function extractMarkdownEvidenceText(body: string): string {
+  if (!body.includes("%%") && !body.includes("<!--")) return body;
+  const { text, tree } = parseEvidenceMarkdown(body);
+  return renderEvidenceText(text, 0, text.length, htmlCommentEdits(tree, text));
 }
 
 export function extractMarkdownSection(
@@ -171,25 +188,25 @@ export function extractMarkdownSection(
   const start = children[index];
   if (start?.type !== "heading" || start.position?.end.offset === undefined) return null;
   const wikiReferences: string[] = [];
-  let text = "";
-  let cursor = start.position.end.offset;
+  const edits: EvidenceEdit[] = [];
   // The whole-note tree retains references to Markdown link definitions outside the section.
-  let endOffset: number | undefined;
+  let endOffset = markdown.text.length;
   for (const node of children.slice(index + 1)) {
     if (node.type === "heading" && node.depth <= start.depth) {
-      endOffset = node.position?.start.offset;
+      endOffset = node.position?.start.offset ?? endOffset;
       break;
     }
+    for (const edit of htmlCommentEdits(node, markdown.text)) edits.push(edit);
     for (const token of evidenceWikiTokens(node, markdown)) {
       if (token.kind === "synthetic") {
-        text += `${markdown.text.slice(cursor, token.offset)}\\[\\[`;
-        cursor = token.offset + 2;
+        edits.push({ start: token.offset, end: token.offset + 2, replacement: "\\[\\[" });
       } else if (!token.link.embed) wikiReferences.push(token.link.target);
     }
   }
+  edits.sort((a, b) => a.start - b.start);
   return {
     heading: nodeText(start),
-    text: text + markdown.text.slice(cursor, endOffset),
+    text: renderEvidenceText(markdown.text, start.position.end.offset, endOffset, edits),
     wikiReferences,
   };
 }

@@ -264,6 +264,20 @@ describe("M0.2 Vault I/O", () => {
     expect(decision.content).not.toMatch(/hidden|first|second|third|ident/i);
   });
 
+  it("removes HTML comments from evidence sections while preserving literal examples", () => {
+    const body = [
+      "## Why",
+      "<!-- obsolete rationale -->",
+      "",
+      "## Rationale",
+      "`<!-- literal example -->` and [[Primary]]. <!-- hidden note -->",
+    ].join("\r\n");
+    expect(extractMarkdownSection(body, "Why")?.text.trim()).toBe("");
+    const rationale = extractMarkdownSection(body, "Rationale");
+    expect(rationale?.text.trim()).toBe("`<!-- literal example -->` and [[Primary]].");
+    expect(rationale?.wikiReferences).toEqual(["Primary"]);
+  });
+
   it("decodes HTML entities on both sides of wikilinks and in their labels", () => {
     const decision = extractMarkdownDecisionSearch(
       "Маяк API &#1080;нтеграция [[Private|R&amp;D]] &#x410;кт \\&amp; `&amp;` &missing;",

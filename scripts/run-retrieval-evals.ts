@@ -501,12 +501,27 @@ function runProjectDecisionCase(item: Case, directory: string): void {
         expected: [primary],
       },
       {
+        name: "an HTML-only Why must fall back to Rationale and hidden Revisit text must stay out of the budget",
+        body: [
+          "## Why",
+          "<!-- Obsolete rationale -->",
+          "## Rationale",
+          link(measurement),
+          "## Revisit",
+          `<!-- ${"Черновик. ".repeat(160)} -->`,
+          item.expected_revisit,
+        ].join("\n\n"),
+        expected: [primary],
+        whyHeading: "Rationale",
+        revisitText: item.expected_revisit,
+      },
+      {
         name: "Records containing only comments must not displace visible evidence at the limit",
         body: `## Why\n${[...hiddenRecords, measurement, ...extraRecords].map(link).join("\n")}`,
         expected: fullBudget,
       },
     ];
-    for (const { name, body, expected, escapedLink } of regressions) {
+    for (const { name, body, expected, escapedLink, whyHeading, revisitText } of regressions) {
       writeNote(acceptedTitle, "decision", "03", "accepted", `${body}\n\n## Appendix\n${link(outsideWhy)}`, {
         date,
         projects: [link(mayak)],
@@ -523,6 +538,8 @@ function runProjectDecisionCase(item: Case, directory: string): void {
       requireCase(
         Boolean(
           evidence?.why &&
+            (whyHeading === undefined || evidence.why.source.heading === whyHeading) &&
+            (revisitText === undefined || evidence.revisit?.text === revisitText) &&
             (escapedLink === undefined || evidence.why.text.includes(escapedLink)) &&
             !evidence.truncated &&
             evidence.records.length === expected.length &&
