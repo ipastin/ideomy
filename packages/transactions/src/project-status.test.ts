@@ -1,5 +1,15 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  renameSync,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createVaultIdentity, hashRaw } from "@ideomy/vault-io";
@@ -26,7 +36,7 @@ const change: ProjectStatusChange = {
   status: "paused",
   expectedHash: hashRaw(before),
 };
-const childTimeout = 20_000;
+const childTimeout = 25_000;
 
 let root: string;
 let scope: TransactionScope;
@@ -54,7 +64,17 @@ function pending(): ProjectStatusJournal {
   return JSON.parse(readFileSync(path.join(journalDirectory, `${active.id}.json`), "utf8")) as ProjectStatusJournal;
 }
 
-function runChild(mode: "before" | "after" | "external-edit") {
+function runChild(
+  mode:
+    | "before"
+    | "after"
+    | "external-edit"
+    | "live-writer"
+    | "apply-race"
+    | "recovery-race"
+    | "second-race"
+    | "recovery-after",
+) {
   return spawnSync(
     process.execPath,
     [
@@ -63,15 +83,10 @@ function runChild(mode: "before" | "after" | "external-edit") {
       "-e",
       `
         import fs from "node:fs";
+        import path from "node:path";
+        import { spawnSync } from "node:child_process";
         import { syncBuiltinESMExports } from "node:module";
-        const [entry, mode, targetFile, scope, change] = process.argv.slice(1);
-        const rename = fs.renameSync;
-        fs.renameSync = (source, target) => {
-          const replacesNote = target.endsWith(".md");
-          if (replacesNote && mode === "before") process.kill(process.pid, "SIGKILL");
-          rename(source, target);
-          if (replacesNote && mode === "after") process.kill(process.pid, "SIGKILL");
-        };
+        const [entry, platform, mode, targetFile, scope, change] = process.argv.slice(1);
         if (mode === "external-edit") {
           const open = fs.openSync;
           fs.openSync = (file, flags, permissions) => {
@@ -83,10 +98,58 @@ function runChild(mode: "before" | "after" | "external-edit") {
           };
         }
         syncBuiltinESMExports();
-        const { commitProjectStatus } = await import(entry);
-        commitProjectStatus(JSON.parse(scope), JSON.parse(change));
+        const { transactionFs } = await import(platform);
+        const exchange = transactionFs.exchange;
+        let calls = 0;
+        transactionFs.exchange = (file, staged) => {
+          calls++;
+          if (calls === 1) {
+            if (mode === "before") process.kill(process.pid, "SIGKILL");
+            if (mode === "live-writer") {
+              const probe = spawnSync(process.execPath, [
+                "--experimental-transform-types", "--input-type=module", "-e",
+                \`
+                  const [entry, options, input] = process.argv.slice(1);
+                  const { commitProjectStatus, recoverProjectStatus } = await import(entry);
+                  const scope = JSON.parse(options);
+                  const outcomes = [];
+                  for (const operation of [
+                    () => commitProjectStatus(scope, JSON.parse(input)),
+                    () => recoverProjectStatus(scope),
+                  ]) {
+                    try { operation(); outcomes.push("unexpected success"); }
+                    catch (error) { outcomes.push(error.code); }
+                  }
+                  process.stdout.write(JSON.stringify(outcomes));
+                \`, entry, scope, change,
+              ], { encoding: "utf8", timeout: 20000 });
+              if (probe.status !== 0) throw new Error(probe.stderr || String(probe.error));
+              fs.writeFileSync(path.join(JSON.parse(scope).stateDirectory, "probe.json"), probe.stdout);
+              process.kill(process.pid, "SIGKILL");
+            }
+            if (mode === "apply-race" || mode === "second-race") {
+              fs.appendFileSync(targetFile, "External edit at apply exchange.\\r\\n");
+            }
+            if (mode === "recovery-race") {
+              const edited = targetFile + ".editor";
+              fs.writeFileSync(edited, Buffer.concat([
+                fs.readFileSync(targetFile), Buffer.from("External save at recovery exchange.\\r\\n"),
+              ]));
+              fs.renameSync(edited, targetFile);
+            }
+          }
+          if (calls === 2 && mode === "second-race") {
+            fs.appendFileSync(targetFile, "Another edit at compensating exchange.\\r\\n");
+          }
+          exchange(file, staged);
+          if (mode === "after" || mode === "recovery-after") process.kill(process.pid, "SIGKILL");
+        };
+        const { commitProjectStatus, recoverProjectStatus } = await import(entry);
+        if (mode === "recovery-race" || mode === "recovery-after") recoverProjectStatus(JSON.parse(scope));
+        else commitProjectStatus(JSON.parse(scope), JSON.parse(change));
       `,
       new URL("./index.ts", import.meta.url).href,
+      new URL("./posix.ts", import.meta.url).href,
       mode,
       file,
       JSON.stringify(scope),
@@ -99,6 +162,13 @@ function runChild(mode: "before" | "after" | "external-edit") {
 function interrupt(phase: "before" | "after"): void {
   const run = runChild(phase);
   expect(run.signal, run.stderr).toBe("SIGKILL");
+}
+
+function expectManualRecovery(): ProjectStatusJournal {
+  const journal = pending();
+  expect(journal.state).toBe("recovery_required");
+  expect(readFileSync(path.join(journalDirectory, `${journal.id}.snapshot`)).equals(before)).toBe(true);
+  return journal;
 }
 
 it("commits a single mapped scalar, preserving all other Vault bytes, and records the diff", () => {
@@ -160,6 +230,96 @@ it.each(["before", "after"] as const)("recovers a real process interruption %s a
   expect(readdirSync(journalDirectory)).toEqual([`${journal.id}.json`]);
   expect(recoverProjectStatus(scope)).toBeNull();
   expect(commitProjectStatus(scope, change).state).toBe("committed");
+});
+
+it("holds the claim against both operations in another process and recovers after SIGKILL", {
+  timeout: childTimeout + 5_000,
+}, () => {
+  const run = runChild("live-writer");
+  expect(run.signal, run.stderr).toBe("SIGKILL");
+  expect(JSON.parse(readFileSync(path.join(scope.stateDirectory, "probe.json"), "utf8"))).toEqual([
+    "TX-BUSY",
+    "TX-BUSY",
+  ]);
+  const journal = pending();
+  expect(readFileSync(file).equals(before)).toBe(true);
+  expect(readFileSync(path.join(journalDirectory, `${journal.id}.snapshot`)).equals(before)).toBe(true);
+  const lock = path.join(scope.stateDirectory, "transactions.lock");
+  const inode = statSync(lock, { bigint: true }).ino;
+  // Stale PID contents cannot attach the lock to an unrelated, live process.
+  writeFileSync(lock, String(process.pid));
+  expect(recoverProjectStatus(scope)).toMatchObject({ id: journal.id, state: "rolled_back" });
+  expect(statSync(lock, { bigint: true }).ino).toBe(inode);
+  expect(commitProjectStatus(scope, change).state).toBe("committed");
+});
+
+it.each([
+  ["apply-race", "External edit at apply exchange.\r\n"],
+  ["recovery-race", "External save at recovery exchange.\r\n"],
+] as const)(
+  "preserves an external write after the final hash check during %s",
+  {
+    timeout: childTimeout * 2 + 5_000,
+  },
+  (mode, edit) => {
+    if (mode === "recovery-race") interrupt("after");
+    const external = Buffer.concat([readFileSync(file), Buffer.from(edit)]);
+    const run = runChild(mode);
+    expect(run.status, run.stderr).toBe(1);
+    expect(run.stderr).toContain("TX-RECOVERY-REQUIRED");
+    expect(readFileSync(file).equals(external)).toBe(true);
+    expectManualRecovery();
+    expect(() => recoverProjectStatus(scope)).toThrowError(expect.objectContaining({ code: "TX-RECOVERY-REQUIRED" }));
+    expect(readFileSync(file).equals(external)).toBe(true);
+  },
+);
+
+it("retains both external versions when an editor also races the compensating exchange", {
+  timeout: childTimeout + 5_000,
+}, () => {
+  const run = runChild("second-race");
+  expect(run.status, run.stderr).toBe(1);
+  expect(run.stderr).toContain("TX-RECOVERY-REQUIRED");
+  const journal = expectManualRecovery();
+  const first = Buffer.concat([before, Buffer.from("External edit at apply exchange.\r\n")]);
+  const second = Buffer.concat([after, Buffer.from("Another edit at compensating exchange.\r\n")]);
+  expect(readFileSync(file).equals(first)).toBe(true);
+  expect(readFileSync(path.join(path.dirname(file), `.ideomy-${journal.id}.tmp`)).equals(second)).toBe(true);
+});
+
+it.each([
+  "before",
+  "after",
+] as const)("preserves identical candidate bytes supplied by an external editor after a crash %s exchange", {
+  timeout: childTimeout + 5_000,
+}, (phase) => {
+  interrupt(phase);
+  const journal = pending();
+  const proof = statSync(path.join(path.dirname(file), `.ideomy-${journal.id}.candidate`), { bigint: true });
+  expect(journal.candidateIdentity).toBe(`${proof.dev}:${proof.ino}`);
+  const edited = `${file}.editor`;
+  writeFileSync(edited, after);
+  renameSync(edited, file);
+  const external = statSync(file, { bigint: true });
+  expect(external.ino).not.toBe(proof.ino);
+  expect(() => recoverProjectStatus(scope)).toThrowError(expect.objectContaining({ code: "TX-RECOVERY-REQUIRED" }));
+  expect(readFileSync(file).equals(after)).toBe(true);
+  expect(statSync(file, { bigint: true }).ino).toBe(external.ino);
+  expectManualRecovery();
+});
+
+it("resumes recovery after a second SIGKILL just after the rollback exchange", {
+  timeout: childTimeout * 2 + 5_000,
+}, () => {
+  interrupt("after");
+  const { id } = pending();
+  const run = runChild("recovery-after");
+  expect(run.signal, run.stderr).toBe("SIGKILL");
+  expect(readFileSync(file).equals(before)).toBe(true);
+  expect(recoverProjectStatus(scope)).toMatchObject({ id, state: "rolled_back" });
+  expect(readFileSync(file).equals(before)).toBe(true);
+  expect(readdirSync(journalDirectory)).toEqual([`${id}.json`]);
+  expect(readdirSync(path.dirname(file))).toEqual([path.basename(file)]);
 });
 
 it("leaves an external edit after interruption intact and retains the recovery snapshot", {

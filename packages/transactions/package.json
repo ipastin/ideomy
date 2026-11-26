@@ -9,6 +9,7 @@
   "dependencies": {
     "@ideomy/schema": "workspace:*",
     "@ideomy/vault-io": "workspace:*",
+    "koffi": "3.3.8",
     "zod": "4.6.0"
   }
 }

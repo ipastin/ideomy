@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import {
+  type BigIntStats,
   closeSync,
   constants,
   fchmodSync,
@@ -26,6 +27,7 @@ import {
   scanVault,
 } from "@ideomy/vault-io";
 import { z } from "zod";
+import { transactionFs } from "./posix.ts";
 
 const sha256 = z.string().regex(/^[a-f0-9]{64}$/);
 const projectId = entitySchemas.project.shape.id;
@@ -39,6 +41,10 @@ const journalSchema = z.strictObject({
   path: z.string().min(1),
   beforeHash: sha256,
   afterHash: sha256,
+  candidateIdentity: z
+    .string()
+    .regex(/^\d+:\d+$/)
+    .optional(),
   previousStatus: projectStatus,
   status: projectStatus,
   state: z.enum(["snapshotted", "applying", "validating", "committed", "rolled_back", "recovery_required"]),
@@ -48,17 +54,17 @@ export type ProjectStatusJournal = z.infer<typeof journalSchema>;
 export type TransactionScope = {
   vaultRoot: string;
   vaultId: string;
-  /** The caller holds exclusive Core ownership of this directory during writes and recovery. */
   stateDirectory: string;
   propertyMapping?: Record<string, string>;
 };
 export type ProjectStatusChange = { projectId: string; status: string; expectedHash: string };
 export class TransactionError extends Error {
   constructor(
-    readonly code: "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED",
+    readonly code: "TX-BUSY" | "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED",
     message: string,
+    options?: ErrorOptions,
   ) {
-    super(message);
+    super(message, options);
     this.name = "TransactionError";
   }
 }
@@ -68,8 +74,7 @@ function hasCode(error: unknown, code: string): boolean {
 }
 
 function syncDirectory(directory: string): void {
-  if (process.platform === "win32") return;
-  const file = openSync(directory, constants.O_RDONLY | constants.O_DIRECTORY);
+  const file = openSync(directory, constants.O_RDONLY | constants.O_DIRECTORY | constants.O_NOFOLLOW);
   try {
     fsyncSync(file);
   } finally {
@@ -77,23 +82,28 @@ function syncDirectory(directory: string): void {
   }
 }
 
-function readRegular(file: string): { bytes: Buffer; mode: number } {
+function identity(stat: BigIntStats): string {
+  return `${stat.dev}:${stat.ino}`;
+}
+
+function readRegular(file: string): { bytes: Buffer; mode: number; identity: string } {
   const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   try {
-    const stat = fstatSync(fd);
+    const stat = fstatSync(fd, { bigint: true });
     if (!stat.isFile()) throw new TransactionError("TX-INVALID", "Expected a regular file.");
-    return { bytes: readFileSync(fd), mode: stat.mode & 0o777 };
+    return { bytes: readFileSync(fd), mode: Number(stat.mode & 0o777n), identity: identity(stat) };
   } finally {
     closeSync(fd);
   }
 }
 
-function writeDurable(file: string, bytes: Buffer | string, mode = 0o600): void {
+function writeDurable(file: string, bytes: Buffer | string, mode = 0o600): string {
   const fd = openSync(file, "wx", 0o600);
   try {
     writeFileSync(fd, bytes);
     if (mode !== 0o600) fchmodSync(fd, mode);
     fsyncSync(fd);
+    return identity(fstatSync(fd, { bigint: true }));
   } finally {
     closeSync(fd);
   }
@@ -106,28 +116,55 @@ function privateDirectory(directory: string): void {
   }
 }
 
-function statePaths(scope: TransactionScope) {
+function isWithin(root: string, target: string): boolean {
+  const relative = path.relative(root, target);
+  return relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+}
+
+type StatePaths = { vault: string; fingerprint: string; directory: string; active: string };
+
+function withStateLock<T>(scope: TransactionScope, run: (paths: StatePaths) => T): T {
   const vault = realpathSync(scope.vaultRoot);
   const state = realpathSync(scope.stateDirectory);
   if (!scope.vaultId) throw new TransactionError("TX-INVALID", "Vault identity is required.");
   const fingerprint = deriveVaultFingerprint(vault, scope.vaultId);
   const parent = path.join(state, "transactions");
   const directory = path.join(parent, fingerprint);
-  const relative = path.relative(vault, directory);
-  if (relative !== ".." && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)) {
+  if (isWithin(vault, state) || isWithin(vault, directory)) {
     throw new TransactionError("TX-INVALID", "Transaction state belongs outside the Vault.");
   }
   privateDirectory(state);
-  for (const child of [parent, directory]) {
-    try {
-      mkdirSync(child, { mode: 0o700 });
-      syncDirectory(path.dirname(child));
-    } catch (error) {
-      if (!hasCode(error, "EEXIST")) throw error;
+  const lockFile = path.join(state, "transactions.lock");
+  const fd = openSync(
+    lockFile,
+    constants.O_CREAT | constants.O_RDWR | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+    0o600,
+  );
+  try {
+    const lock = fstatSync(fd, { bigint: true });
+    if (!lock.isFile() || lock.nlink !== 1n || (lock.mode & 0o077n) !== 0n) {
+      throw new TransactionError("TX-INVALID", "Expected a private regular state lock file.");
     }
-    privateDirectory(child);
+    if (!transactionFs.tryLock(fd)) {
+      throw new TransactionError("TX-BUSY", "Another process is using this transaction state directory.");
+    }
+    if (identity(lstatSync(lockFile, { bigint: true })) !== identity(lock)) {
+      throw new TransactionError("TX-INVALID", "The state lock file changed during acquisition.");
+    }
+    for (const child of [parent, directory]) {
+      try {
+        mkdirSync(child, { mode: 0o700 });
+        syncDirectory(path.dirname(child));
+      } catch (error) {
+        if (!hasCode(error, "EEXIST")) throw error;
+      }
+      privateDirectory(child);
+    }
+    return run({ vault, fingerprint, directory, active: path.join(directory, "active.json") });
+  } finally {
+    // Keep the lock inode at this path. The kernel releases its lock when the descriptor closes.
+    closeSync(fd);
   }
-  return { vault, fingerprint, directory, active: path.join(directory, "active.json") };
 }
 
 function notePath(root: string, relative: string): string {
@@ -144,17 +181,36 @@ function requireHash(bytes: Uint8Array, expected: string): void {
   }
 }
 
-function replaceNote(root: string, relative: string, temporary: string, bytes: Buffer, expected: string): void {
-  const file = notePath(root, relative);
-  const current = readRegular(file);
-  requireHash(current.bytes, expected);
-  writeDurable(temporary, bytes, current.mode);
+type FileVersion = { identity: string; hash: string };
+
+function version(file: string): FileVersion | null {
   try {
-    requireHash(readRegular(notePath(root, relative)).bytes, expected);
-    renameSync(temporary, file);
-    syncDirectory(path.dirname(file));
-  } finally {
-    rmSync(temporary, { force: true });
+    const current = readRegular(file);
+    return { identity: current.identity, hash: hashRaw(current.bytes) };
+  } catch (error) {
+    if (hasCode(error, "ENOENT")) return null;
+    throw error;
+  }
+}
+
+function sameVersion(actual: FileVersion | null, expected: FileVersion): boolean {
+  return actual?.identity === expected.identity && actual.hash === expected.hash;
+}
+
+function exchangeChecked(file: string, slot: string, current: FileVersion, replacement: FileVersion): void {
+  if (!sameVersion(version(slot), replacement)) {
+    throw new TransactionError("TX-RECOVERY-REQUIRED", "The staged version changed before atomic exchange.");
+  }
+  if (!sameVersion(version(file), current)) {
+    throw new TransactionError("TX-CONFLICT", "Vault Markdown changed before atomic exchange.");
+  }
+  transactionFs.exchange(file, slot);
+  const displaced = version(slot);
+  const published = version(file);
+  if (!sameVersion(displaced, current) || !sameVersion(published, replacement)) {
+    // A compensating exchange also retains anything written since the first exchange.
+    if (displaced && sameVersion(published, replacement)) transactionFs.exchange(file, slot);
+    throw new TransactionError("TX-RECOVERY-REQUIRED", "A concurrent edit changed the exchanged files.");
   }
 }
 
@@ -204,13 +260,64 @@ function claim(active: string, claimFile: string, id: string): void {
   }
 }
 
-function stagedNote(file: string, id: string): string {
-  return path.join(path.dirname(file), `.ideomy-${id}.tmp`);
+function stagedFiles(vault: string, relative: string, id: string) {
+  const file = path.resolve(vault, relative);
+  const directory = path.dirname(file);
+  if (
+    path.isAbsolute(relative) ||
+    relative.includes("\0") ||
+    file === vault ||
+    !isWithin(vault, file) ||
+    path.extname(file) !== ".md" ||
+    directory !== realpathSync(directory)
+  ) {
+    throw new TransactionError("TX-INVALID", "The staged files must be beside a Vault Markdown file.");
+  }
+  return {
+    slot: path.join(directory, `.ideomy-${id}.tmp`),
+    proof: path.join(directory, `.ideomy-${id}.candidate`),
+  };
+}
+
+function requireManualRecovery(transaction: ReturnType<typeof files>, journal: ProjectStatusJournal, cause: unknown) {
+  saveJournal(transaction.journal, { ...journal, state: "recovery_required" });
+  return new TransactionError("TX-RECOVERY-REQUIRED", "The Project transaction needs manual recovery.", { cause });
+}
+
+function finishTerminal(
+  paths: StatePaths,
+  transaction: ReturnType<typeof files>,
+  journal: ProjectStatusJournal,
+): ProjectStatusJournal {
+  const staged = stagedFiles(paths.vault, journal.path, journal.id);
+  try {
+    const slot = version(staged.slot);
+    const proof = version(staged.proof);
+    const discardHash = journal.state === "committed" ? journal.beforeHash : journal.afterHash;
+    if (slot && slot.hash !== discardHash) throw new Error("The staged file contains unrecognized bytes.");
+    if (
+      proof &&
+      (proof.hash !== journal.afterHash || (journal.candidateIdentity && proof.identity !== journal.candidateIdentity))
+    ) {
+      throw new Error("The candidate hard link changed.");
+    }
+  } catch (error) {
+    throw requireManualRecovery(transaction, journal, error);
+  }
+  rmSync(staged.slot, { force: true });
+  rmSync(staged.proof, { force: true });
+  syncDirectory(path.dirname(staged.slot));
+  finish(paths.active, transaction);
+  return journal;
 }
 
 /** Apply one typed Project status change. The caller provides the Vault's machine-local state directory. */
 export function commitProjectStatus(scope: TransactionScope, change: ProjectStatusChange): ProjectStatusJournal {
-  const { vault, fingerprint, directory, active } = statePaths(scope);
+  return withStateLock(scope, (paths) => commitLocked(paths, scope, change));
+}
+
+function commitLocked(paths: StatePaths, scope: TransactionScope, change: ProjectStatusChange): ProjectStatusJournal {
+  const { vault, fingerprint, directory, active } = paths;
   if (readState(active, pendingSchema)) {
     throw new TransactionError("TX-RECOVERY-REQUIRED", "Recover the pending Vault transaction before writing.");
   }
@@ -230,9 +337,12 @@ export function commitProjectStatus(scope: TransactionScope, change: ProjectStat
   const transactionId = randomUUID();
   const transaction = files(directory, transactionId);
   const file = notePath(vault, target.path);
+  const current = readRegular(file);
+  requireHash(current.bytes, plan.preconditionHash);
+  const staged = stagedFiles(vault, target.path, transactionId);
   claim(active, transaction.claim, transactionId);
   writeDurable(transaction.snapshot, target.note.raw);
-  const journal = saveJournal(transaction.journal, {
+  const snapshotted = saveJournal(transaction.journal, {
     version: 1,
     id: transactionId,
     vaultFingerprint: fingerprint,
@@ -244,35 +354,53 @@ export function commitProjectStatus(scope: TransactionScope, change: ProjectStat
     status,
     state: "snapshotted",
   });
-  saveJournal(transaction.journal, { ...journal, state: "applying" });
+  const candidateIdentity = writeDurable(staged.slot, plan.candidate, current.mode);
+  // Pin the staged inode so a later external file cannot reuse its identity.
+  linkSync(staged.slot, staged.proof);
+  syncDirectory(path.dirname(file));
+  const journal = saveJournal(transaction.journal, { ...snapshotted, candidateIdentity, state: "applying" });
   try {
-    replaceNote(vault, journal.path, stagedNote(file, transactionId), plan.candidate, journal.beforeHash);
+    exchangeChecked(
+      file,
+      staged.slot,
+      { identity: current.identity, hash: journal.beforeHash },
+      { identity: candidateIdentity, hash: journal.afterHash },
+    );
   } catch (error) {
     if (error instanceof TransactionError && error.code === "TX-CONFLICT") {
-      saveJournal(transaction.journal, { ...journal, state: "rolled_back" });
-      finish(active, transaction);
+      const rolledBack = saveJournal(transaction.journal, { ...journal, state: "rolled_back" });
+      finishTerminal(paths, transaction, rolledBack);
+      throw error;
     }
-    throw error;
+    throw requireManualRecovery(transaction, journal, error);
   }
-  saveJournal(transaction.journal, { ...journal, state: "validating" });
-  const written = parseMarkdown(readRegular(notePath(vault, journal.path)).bytes, scope.propertyMapping);
-  if (
-    written.hash !== journal.afterHash ||
-    written.kind !== "managed" ||
-    written.logicalProperties?.id !== id ||
-    written.logicalProperties.status !== status
-  ) {
-    saveJournal(transaction.journal, { ...journal, state: "recovery_required" });
-    throw new TransactionError("TX-RECOVERY-REQUIRED", "Post-write validation did not confirm the planned change.");
+  const validating = saveJournal(transaction.journal, { ...journal, state: "validating" });
+  try {
+    const published = readRegular(notePath(vault, journal.path));
+    const written = parseMarkdown(published.bytes, scope.propertyMapping);
+    if (
+      published.identity !== candidateIdentity ||
+      written.hash !== journal.afterHash ||
+      written.kind !== "managed" ||
+      written.logicalProperties?.id !== id ||
+      written.logicalProperties.status !== status
+    ) {
+      throw new Error("Post-write validation did not confirm the plan.");
+    }
+  } catch (error) {
+    throw requireManualRecovery(transaction, validating, error);
   }
   const committed = saveJournal(transaction.journal, { ...journal, state: "committed" });
-  finish(active, transaction);
-  return committed;
+  return finishTerminal(paths, transaction, committed);
 }
 
-/** Run on startup while holding exclusive Core ownership of the machine-local state directory. */
+/** Recover a pending Project status change under the same OS lock used for commits. */
 export function recoverProjectStatus(scope: TransactionScope): ProjectStatusJournal | null {
-  const { vault, fingerprint, directory, active } = statePaths(scope);
+  return withStateLock(scope, (paths) => recoverLocked(paths, scope));
+}
+
+function recoverLocked(paths: StatePaths, scope: TransactionScope): ProjectStatusJournal | null {
+  const { vault, fingerprint, directory, active } = paths;
   const pending = readState(active, pendingSchema);
   if (!pending) return null;
   const transaction = files(directory, pending.id);
@@ -285,19 +413,25 @@ export function recoverProjectStatus(scope: TransactionScope): ProjectStatusJour
   if (journal.id !== pending.id || journal.vaultFingerprint !== fingerprint) {
     throw new TransactionError("TX-RECOVERY-REQUIRED", "Pending transaction identity does not match this Vault.");
   }
-  if (journal.state === "committed" || journal.state === "rolled_back") {
-    finish(active, transaction);
-    return journal;
-  }
   rmSync(`${transaction.journal}.next`, { force: true });
+  if (journal.state === "committed" || journal.state === "rolled_back") {
+    return finishTerminal(paths, transaction, journal);
+  }
+  if (journal.state === "recovery_required") {
+    throw new TransactionError("TX-RECOVERY-REQUIRED", "The Project transaction needs manual recovery.");
+  }
   try {
     const file = notePath(vault, journal.path);
-    const temporary = stagedNote(file, journal.id);
-    const actual = hashRaw(readRegular(file).bytes);
-    rmSync(temporary, { force: true });
-    if (actual !== journal.beforeHash) {
-      if (actual !== journal.afterHash) {
-        throw new TransactionError("TX-RECOVERY-REQUIRED", "Vault Markdown changed after the interrupted write.");
+    const staged = stagedFiles(vault, journal.path, journal.id);
+    const actual = version(file);
+    if (actual?.hash !== journal.beforeHash) {
+      const candidate = { identity: journal.candidateIdentity ?? "", hash: journal.afterHash };
+      const displaced = version(staged.slot);
+      if (!sameVersion(version(staged.proof), candidate) || !sameVersion(actual, candidate)) {
+        throw new Error("The current Vault file cannot be attributed to this transaction.");
+      }
+      if (displaced?.hash !== journal.beforeHash) {
+        throw new Error("The exchanged original is missing or changed.");
       }
       const snapshot = readRegular(transaction.snapshot).bytes;
       requireHash(snapshot, journal.beforeHash);
@@ -309,14 +443,11 @@ export function recoverProjectStatus(scope: TransactionScope): ProjectStatusJour
       ) {
         throw new TransactionError("TX-RECOVERY-REQUIRED", "Recovery snapshot does not contain the original Project.");
       }
-      replaceNote(vault, journal.path, temporary, snapshot, journal.afterHash);
-      requireHash(readRegular(notePath(vault, journal.path)).bytes, journal.beforeHash);
+      exchangeChecked(file, staged.slot, candidate, displaced);
     }
-  } catch {
-    saveJournal(transaction.journal, { ...journal, state: "recovery_required" });
-    throw new TransactionError("TX-RECOVERY-REQUIRED", "The interrupted Project transaction needs manual recovery.");
+  } catch (error) {
+    throw requireManualRecovery(transaction, journal, error);
   }
   const rolledBack = saveJournal(transaction.journal, { ...journal, state: "rolled_back" });
-  finish(active, transaction);
-  return rolledBack;
+  return finishTerminal(paths, transaction, rolledBack);
 }
