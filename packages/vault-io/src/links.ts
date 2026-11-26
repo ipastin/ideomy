@@ -23,22 +23,20 @@ function nodeText(node: Nodes): string {
 }
 
 type WikiToken =
-  | { kind: "wiki"; link: ExtractedLink; start: number | undefined; end: number | undefined }
+  | { kind: "wiki"; link: ExtractedLink; start: number; end: number }
   | { kind: "synthetic"; offset: number };
 
-function* wikilinksInText(node: Text, body: string, gaps: readonly number[] = []): Iterable<WikiToken> {
-  const start = node.position?.start.offset;
-  const end = node.position?.end.offset;
-  const rawText = start === undefined || end === undefined ? node.value : body.slice(start, end);
+function* wikilinksInText(body: string, start: number, end: number, gaps: readonly number[]): Iterable<WikiToken> {
+  const rawText = body.slice(start, end);
   for (const match of rawText.matchAll(/(!?)\[\[([^\]\r\n]+)\]\]/g)) {
-    const precedingSlashes = rawText.slice(0, match.index).match(/\\+$/)?.[0].length ?? 0;
+    let precedingSlashes = 0;
+    while (rawText[match.index - precedingSlashes - 1] === "\\") precedingSlashes++;
     if (precedingSlashes % 2 && match[1] !== "!") continue;
-    if (start !== undefined) {
-      const linkStart = start + match.index;
-      if (gaps.some((gap) => gap > linkStart && gap < linkStart + match[0].length)) {
-        yield { kind: "synthetic", offset: linkStart + (match[1]?.length ?? 0) };
-        continue;
-      }
+    const linkStart = start + match.index;
+    const linkEnd = linkStart + match[0].length;
+    if (gaps.some((gap) => gap > linkStart && gap < linkEnd)) {
+      yield { kind: "synthetic", offset: linkStart + (match[1]?.length ?? 0) };
+      continue;
     }
     const [target, alias] = (match[2] ?? "").split("|", 2);
     if (target)
@@ -50,8 +48,8 @@ function* wikilinksInText(node: Text, body: string, gaps: readonly number[] = []
           ...(alias ? { alias } : {}),
           embed: match[1] === "!" && precedingSlashes % 2 === 0,
         },
-        start: start === undefined ? undefined : start + match.index,
-        end: start === undefined ? undefined : start + match.index + match[0].length,
+        start: linkStart,
+        end: linkEnd,
       };
   }
 }
@@ -62,28 +60,76 @@ function* markdownNodes(node: Nodes): Iterable<Nodes> {
 }
 
 type EvidenceMarkdown = { text: string; tree: Root; gaps: number[] };
+type EvidenceEdit = { start: number; end: number; replacement: string };
 
-function parseEvidenceMarkdown(body: string): EvidenceMarkdown {
+function stripComments(body: string, edits: Iterable<EvidenceEdit>, previousGaps: readonly number[] = []) {
   const chunks: string[] = [];
   const gaps: number[] = [];
+  let gapIndex = 0;
   let removed = 0;
   let cursor = 0;
-  const comments = body.includes("%%") ? obsidianComments(body) : [];
-  for (const { start, end, block } of comments) {
-    const replacement = block ? body.slice(start, end).replace(/[^\r\n]/g, "") : " ";
+  for (const { start, end, replacement } of edits) {
+    for (let gap = previousGaps[gapIndex]; gap !== undefined && gap < end; gap = previousGaps[++gapIndex]) {
+      if (gap < start) gaps.push(gap - removed);
+    }
     chunks.push(body.slice(cursor, start), replacement);
     gaps.push(start - removed);
     removed += end - start - replacement.length;
     cursor = end;
   }
-  const text = chunks.length ? chunks.join("") + body.slice(cursor) : body;
-  return { text, tree: fromMarkdown(text), gaps };
+  for (const gap of previousGaps.slice(gapIndex)) gaps.push(gap - removed);
+  return { text: chunks.length ? chunks.join("") + body.slice(cursor) : body, gaps };
+}
+
+function parseEvidenceMarkdown(body: string): EvidenceMarkdown {
+  const comments = body.includes("%%") ? obsidianComments(body) : [];
+  const obsidianVisible = stripComments(
+    body,
+    comments.map(({ start, end, block }) => ({
+      start,
+      end,
+      replacement: block ? body.slice(start, end).replace(/[^\r\n]/g, "") : " ",
+    })),
+  );
+  const tree = fromMarkdown(obsidianVisible.text);
+  if (!obsidianVisible.text.includes("<!--")) return { ...obsidianVisible, tree };
+  const htmlVisible = stripComments(
+    obsidianVisible.text,
+    htmlCommentEdits(tree, obsidianVisible.text),
+    obsidianVisible.gaps,
+  );
+  return { ...htmlVisible, tree: htmlVisible.text === obsidianVisible.text ? tree : fromMarkdown(htmlVisible.text) };
+}
+
+function* inlineTextNodes(node: Nodes): Iterable<Text | null> {
+  if (node.type === "text") yield node;
+  else if (node.type === "emphasis" || node.type === "strong") {
+    for (const child of node.children) yield* inlineTextNodes(child);
+  } else yield null;
+}
+
+function* inlineWikiTokens(node: Nodes, text: string, gaps: readonly number[] = []): Iterable<WikiToken> {
+  if (node.type !== "paragraph" && node.type !== "heading") return;
+  let start: number | undefined;
+  let end = 0;
+  for (const child of node.children) {
+    for (const leaf of inlineTextNodes(child)) {
+      if (leaf?.position?.start.offset !== undefined && leaf.position.end.offset !== undefined) {
+        start ??= leaf.position.start.offset;
+        end = leaf.position.end.offset;
+      } else {
+        if (start !== undefined) yield* wikilinksInText(text, start, end, gaps);
+        start = undefined;
+      }
+    }
+  }
+  if (start !== undefined) yield* wikilinksInText(text, start, end, gaps);
 }
 
 function* evidenceWikiTokens(node: Nodes, markdown: EvidenceMarkdown): Iterable<WikiToken> {
-  if (node.type === "link" || node.type === "linkReference") return;
-  if (node.type === "text") yield* wikilinksInText(node, markdown.text, markdown.gaps);
-  if ("children" in node) for (const child of node.children) yield* evidenceWikiTokens(child, markdown);
+  for (const descendant of markdownNodes(node)) {
+    yield* inlineWikiTokens(descendant, markdown.text, markdown.gaps);
+  }
 }
 
 export function extractMarkdownWikiReferences(body: string): string[] {
@@ -102,37 +148,49 @@ function decodeMarkdownText(text: string): string {
   );
 }
 
-function visibleLinkLabels(node: Text, markdown: EvidenceMarkdown): string {
+type WikiLabelCursor = { tokens: Extract<WikiToken, { kind: "wiki" }>[]; index: number };
+
+function visibleLinkLabels(node: Text, source: string, labels?: WikiLabelCursor): string {
   const start = node.position?.start.offset;
   const end = node.position?.end.offset;
-  if (start === undefined || end === undefined) return node.value;
+  if (!labels || start === undefined || end === undefined) return node.value;
   let text = "";
   let cursor = start;
-  for (const token of wikilinksInText(node, markdown.text, markdown.gaps)) {
-    if (token.kind !== "wiki" || token.start === undefined || token.end === undefined) continue;
-    const [target, heading] = token.link.target.split("#", 2);
-    const basename = target?.split("/").at(-1)?.replace(/\.md$/i, "");
-    const label = token.link.embed
-      ? " "
-      : (token.link.alias ?? [basename, heading?.startsWith("^") ? undefined : heading].filter(Boolean).join(" "));
-    text += decodeMarkdownText(markdown.text.slice(cursor, token.start)) + decodeMarkdownText(label);
-    cursor = token.end;
+  for (let token = labels.tokens[labels.index]; token && token.start < end; token = labels.tokens[++labels.index]) {
+    if (token.end <= start) continue;
+    if (token.start >= start) {
+      const [target, heading] = token.link.target.split("#", 2);
+      const basename = target?.split("/").at(-1)?.replace(/\.md$/i, "");
+      const label = token.link.embed
+        ? " "
+        : (token.link.alias ?? [basename, heading?.startsWith("^") ? undefined : heading].filter(Boolean).join(" "));
+      text += decodeMarkdownText(source.slice(cursor, token.start)) + decodeMarkdownText(label);
+    }
+    cursor = Math.min(token.end, end);
+    if (token.end > end) break;
   }
-  return cursor === start ? node.value : text + decodeMarkdownText(markdown.text.slice(cursor, end));
+  return cursor === start ? node.value : text + decodeMarkdownText(source.slice(cursor, end));
 }
 
 export function extractMarkdownDecisionSearch(body: string): { title: string | null; content: string } {
   const markdown = parseEvidenceMarkdown(body);
   const parts: string[] = [];
   let title: string | null = null;
-  const searchText = (node: Nodes): string => {
-    if (node.type === "text") return visibleLinkLabels(node, markdown);
+  const searchText = (node: Nodes, enclosingLabels?: WikiLabelCursor): string => {
+    if (node.type === "text") return visibleLinkLabels(node, markdown.text, enclosingLabels);
     if (node.type === "code" || node.type === "inlineCode") return node.value;
     if (node.type === "image" || node.type === "imageReference") return node.alt ?? "";
     if (node.type === "break") return "\n";
     if (!("children" in node)) return "";
+    const labels =
+      node.type === "paragraph" || node.type === "heading"
+        ? {
+            tokens: [...inlineWikiTokens(node, markdown.text, markdown.gaps)].filter((token) => token.kind === "wiki"),
+            index: 0,
+          }
+        : enclosingLabels;
     const block = node.type === "blockquote" || node.type === "list" || node.type === "listItem";
-    return node.children.map(searchText).join(block ? "\n" : "");
+    return node.children.map((child) => searchText(child, labels)).join(block ? "\n" : "");
   };
   for (const node of markdown.tree.children) {
     const text = searchText(node).trim();
@@ -141,8 +199,6 @@ export function extractMarkdownDecisionSearch(body: string): { title: string | n
   }
   return { title, content: parts.join("\n") };
 }
-
-type EvidenceEdit = { start: number; end: number; replacement: string };
 
 function* htmlCommentEdits(root: Nodes, text: string): Iterable<EvidenceEdit> {
   for (const node of markdownNodes(root)) {
@@ -170,10 +226,21 @@ function renderEvidenceText(text: string, start: number, end: number, edits: Ite
   return visible + text.slice(cursor, end);
 }
 
+function* syntheticWikiEdits(tokens: Iterable<WikiToken>): Iterable<EvidenceEdit> {
+  for (const token of tokens) {
+    if (token.kind === "synthetic") yield { start: token.offset, end: token.offset + 2, replacement: "\\[\\[" };
+  }
+}
+
 export function extractMarkdownEvidenceText(body: string): string {
   if (!body.includes("%%") && !body.includes("<!--")) return body;
-  const { text, tree } = parseEvidenceMarkdown(body);
-  return renderEvidenceText(text, 0, text.length, htmlCommentEdits(tree, text));
+  const markdown = parseEvidenceMarkdown(body);
+  return renderEvidenceText(
+    markdown.text,
+    0,
+    markdown.text.length,
+    syntheticWikiEdits(evidenceWikiTokens(markdown.tree, markdown)),
+  );
 }
 
 export function extractMarkdownSection(
@@ -196,14 +263,12 @@ export function extractMarkdownSection(
       endOffset = node.position?.start.offset ?? endOffset;
       break;
     }
-    for (const edit of htmlCommentEdits(node, markdown.text)) edits.push(edit);
-    for (const token of evidenceWikiTokens(node, markdown)) {
-      if (token.kind === "synthetic") {
-        edits.push({ start: token.offset, end: token.offset + 2, replacement: "\\[\\[" });
-      } else if (!token.link.embed) wikiReferences.push(token.link.target);
+    const tokens = [...evidenceWikiTokens(node, markdown)];
+    edits.push(...syntheticWikiEdits(tokens));
+    for (const token of tokens) {
+      if (token.kind === "wiki" && !token.link.embed) wikiReferences.push(token.link.target);
     }
   }
-  edits.sort((a, b) => a.start - b.start);
   return {
     heading: nodeText(start),
     text: renderEvidenceText(markdown.text, start.position.end.offset, endOffset, edits),
@@ -218,6 +283,7 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
   const openOrder: string[] = [];
   const seenAuto = new Set<string>();
   const tree = fromMarkdown(body);
+  const links: { offset: number; link: ExtractedLink }[] = [];
   const definitions = new Map<string, string>();
   const collectDefinitions = (node: Nodes): void => {
     if (node.type === "definition" && !definitions.has(node.identifier)) definitions.set(node.identifier, node.url);
@@ -227,10 +293,13 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
 
   const visit = (node: Nodes, parentType?: Nodes["type"]): void => {
     if (node.type === "heading") structure.headings.push({ level: node.depth, text: nodeText(node) });
-    if (node.type === "link")
-      structure.links.push({ kind: "markdown", target: node.url, alias: nodeText(node), embed: false });
+    for (const token of inlineWikiTokens(node, body)) {
+      if (token.kind === "wiki") links.push({ offset: token.start, link: token.link });
+    }
+    const appendLink = (link: ExtractedLink) => links.push({ offset: node.position?.start.offset ?? 0, link });
+    if (node.type === "link") appendLink({ kind: "markdown", target: node.url, alias: nodeText(node), embed: false });
     if (node.type === "image")
-      structure.links.push({
+      appendLink({
         kind: "markdown",
         target: node.url,
         ...(node.alt ? { alias: node.alt } : {}),
@@ -239,15 +308,12 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
     if (node.type === "linkReference" || node.type === "imageReference") {
       const target = definitions.get(node.identifier);
       if (target)
-        structure.links.push({
+        appendLink({
           kind: "markdown",
           target,
           alias: node.type === "imageReference" ? (node.alt ?? "") : nodeText(node),
           embed: node.type === "imageReference",
         });
-    }
-    if (node.type === "text") {
-      for (const token of wikilinksInText(node, body)) if (token.kind === "wiki") structure.links.push(token.link);
     }
     if (node.type === "code" && node.position) {
       const { start, end } = node.position;
@@ -288,6 +354,7 @@ export function extractMarkdownStructure(body: string): MarkdownStructure {
   };
 
   visit(tree);
+  structure.links = links.sort((a, b) => a.offset - b.offset).map(({ link }) => link);
   for (const name of openAuto.keys()) structure.autoIssues.push(`unmatched AUTO begin: ${name}`);
   return structure;
 }

@@ -16,8 +16,10 @@ import {
   createVaultIdentity,
   deriveVaultFingerprint,
   extractMarkdownDecisionSearch,
+  extractMarkdownEvidenceText,
   extractMarkdownSection,
   extractMarkdownStructure,
+  extractMarkdownWikiReferences,
   generateEntityId,
   hashRaw,
   normalizeProperties,
@@ -219,6 +221,7 @@ describe("M0.2 Vault I/O", () => {
     const body = [
       "## Why",
       "🧪 [[Other%% hidden %%Record]] and ![[Another%% hidden %%Record]].",
+      "[[HTML<!-- hidden -->Record]].",
       "[[Primary|measurement]]",
       "`[[Example%% literal %%Record]]`",
       "## Appendix",
@@ -228,11 +231,29 @@ describe("M0.2 Vault I/O", () => {
     expect(section?.text.trim()).toBe(
       [
         "🧪 \\[\\[Other Record]] and !\\[\\[Another Record]].",
+        "\\[\\[HTML Record]].",
         "[[Primary|measurement]]",
         "`[[Example%% literal %%Record]]`",
       ].join("\r\n"),
     );
     expect(section?.wikiReferences).toEqual(["Primary"]);
+    expect(extractMarkdownEvidenceText(body)).toContain(section?.text.trim());
+  });
+
+  it("resolves wikilinks across inline emphasis and respects opaque Markdown", () => {
+    const line =
+      "[[Run _2025_ report|the **summary**]] \\[[escaped _target_]] `[[code _target_]]` [link [[label _target_]]](https://example.com)";
+    const body = `## Why\n${line}`;
+    const target = "Run _2025_ report";
+    expect(extractMarkdownWikiReferences(body)).toEqual([target]);
+    expect(extractMarkdownSection(body, "Why")?.wikiReferences).toEqual([target]);
+    expect(
+      extractMarkdownStructure(body)
+        .links.filter((link) => link.kind === "wiki")
+        .map((link) => link.target),
+    ).toEqual([target]);
+    expect(extractMarkdownDecisionSearch(body).content).toContain("the **summary**");
+    expect(extractMarkdownDecisionSearch(body).content).not.toContain("Run");
   });
 
   it("uses visible Decision text and link labels while ignoring hidden terms and destinations", () => {
@@ -276,6 +297,9 @@ describe("M0.2 Vault I/O", () => {
     const rationale = extractMarkdownSection(body, "Rationale");
     expect(rationale?.text.trim()).toBe("`<!-- literal example -->` and [[Primary]].");
     expect(rationale?.wikiReferences).toEqual(["Primary"]);
+    expect(extractMarkdownDecisionSearch("<!-- hidden --> Measured latency fell.").content).toBe(
+      "Measured latency fell.",
+    );
   });
 
   it("decodes HTML entities on both sides of wikilinks and in their labels", () => {

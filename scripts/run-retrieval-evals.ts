@@ -278,7 +278,7 @@ function runProjectDecisionCase(item: Case, directory: string): void {
   };
   const mayak = "Маяк — возвраты";
   const north = "Север — возвраты";
-  const measurement = "Маяк — сверка идентификаторов";
+  const measurement = "Маяк — сверка _стабильных_ идентификаторов";
   const outsideWhy = "Маяк — посторонняя сверка";
   const denied = "Маяк — закрытая сверка";
   const unverified = "Маяк — черновая сверка";
@@ -342,7 +342,7 @@ function runProjectDecisionCase(item: Case, directory: string): void {
     "record",
     "08",
     "verified",
-    "## Measurement\n31 из 40 возвратов сопоставили со стабильным ID, у 9 стабильного ID не было.",
+    "## Measurement\n31 из 40 возвратов сопоставили со стабильным ID, у 9 стабильного ID не было.\n\nПример: [[Сводка%% черновик %%замеров]].",
     { date, subtype: "evidence" },
   );
   writeNote(outsideWhy, "record", "09", "verified", "Не относится к обоснованию.", { date, subtype: "evidence" });
@@ -435,6 +435,7 @@ function runProjectDecisionCase(item: Case, directory: string): void {
       Boolean(
         result?.records.length === 1 &&
           result.records[0]?.text.includes(item.expected_measurement) &&
+          result.records[0].text.includes("\\[\\[Сводка замеров]]") &&
           result.records[0].trust === "untrusted_data" &&
           cites(result.records[0].source, recordRef),
       ),
