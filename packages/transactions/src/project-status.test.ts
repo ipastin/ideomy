@@ -1,7 +1,9 @@
 import { spawnSync } from "node:child_process";
 import {
+  closeSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readdirSync,
   readFileSync,
   renameSync,
@@ -73,7 +75,10 @@ function runChild(
     | "apply-race"
     | "recovery-race"
     | "second-race"
-    | "recovery-after",
+    | "recovery-after"
+    | "compensation-crash"
+    | "open-editor",
+  editorFd?: number,
 ) {
   return spawnSync(
     process.execPath,
@@ -97,12 +102,33 @@ function runChild(
             return fd;
           };
         }
+        if (mode === "open-editor") {
+          const remove = fs.rmSync;
+          fs.rmSync = (file, options) => {
+            if (String(file).endsWith(".candidate")) {
+              if (fs.statSync(file, { bigint: true }).ino !== fs.fstatSync(3, { bigint: true }).ino) {
+                throw new Error("The editor must still hold the displaced inode.");
+              }
+              const edit = spawnSync(process.execPath, [
+                "--input-type=module", "-e",
+                'import { writeSync } from "node:fs"; writeSync(3, "Late external write.\\\\r\\\\n");',
+              ], { stdio: ["ignore", "inherit", "inherit", 3], timeout: 20000 });
+              if (edit.status !== 0) throw new Error("The editor failed to write to its open descriptor.");
+            }
+            remove(file, options);
+          };
+        }
         syncBuiltinESMExports();
         const { transactionFs } = await import(platform);
         const exchange = transactionFs.exchange;
         let calls = 0;
         transactionFs.exchange = (file, staged) => {
           calls++;
+          if (mode === "compensation-crash") {
+            const edited = targetFile + ".editor";
+            fs.writeFileSync(edited, fs.readFileSync(targetFile));
+            fs.renameSync(edited, targetFile);
+          }
           if (calls === 1) {
             if (mode === "before") process.kill(process.pid, "SIGKILL");
             if (mode === "live-writer") {
@@ -143,9 +169,13 @@ function runChild(
           }
           exchange(file, staged);
           if (mode === "after" || mode === "recovery-after") process.kill(process.pid, "SIGKILL");
+          if (mode === "compensation-crash" && calls === 2) process.kill(process.pid, "SIGKILL");
         };
         const { commitProjectStatus, recoverProjectStatus } = await import(entry);
-        if (mode === "recovery-race" || mode === "recovery-after") recoverProjectStatus(JSON.parse(scope));
+        if (mode === "recovery-race" || mode === "recovery-after" || mode === "open-editor") {
+          const receipt = recoverProjectStatus(JSON.parse(scope));
+          process.stdout.write(JSON.stringify(receipt));
+        }
         else commitProjectStatus(JSON.parse(scope), JSON.parse(change));
       `,
       new URL("./index.ts", import.meta.url).href,
@@ -155,7 +185,11 @@ function runChild(
       JSON.stringify(scope),
       JSON.stringify(change),
     ],
-    { encoding: "utf8", timeout: childTimeout },
+    {
+      encoding: "utf8",
+      timeout: childTimeout,
+      stdio: ["ignore", "pipe", "pipe", ...(editorFd === undefined ? [] : [editorFd])],
+    },
   );
 }
 
@@ -183,6 +217,10 @@ it("commits a single mapped scalar, preserving all other Vault bytes, and record
     status: "paused",
     state: "committed",
   });
+  const staged = path.join(path.dirname(project), `.ideomy-${receipt.id}.tmp`);
+  const proof = path.join(path.dirname(project), `.ideomy-${receipt.id}.candidate`);
+  expect(receipt.retainedPaths).toEqual([staged, proof]);
+  expect(readFileSync(path.join(scope.vaultRoot, staged)).equals(before)).toBe(true);
   expect(readdirSync(journalDirectory)).toEqual([`${receipt.id}.json`]);
   expect(JSON.parse(readFileSync(path.join(journalDirectory, `${receipt.id}.json`), "utf8"))).toEqual(receipt);
   expect(recoverProjectStatus(scope)).toBeNull();
@@ -224,9 +262,14 @@ it.each(["before", "after"] as const)("recovers a real process interruption %s a
   expect(() => commitProjectStatus(scope, change)).toThrowError(
     expect.objectContaining({ code: "TX-RECOVERY-REQUIRED" }),
   );
-  expect(recoverProjectStatus(scope)).toMatchObject({ id: journal.id, state: "rolled_back" });
+  const recovered = recoverProjectStatus(scope);
+  expect(recovered).toMatchObject({ id: journal.id, state: "rolled_back" });
   expect(readFileSync(file).equals(before)).toBe(true);
-  expect(readdirSync(path.dirname(file))).toEqual([path.basename(file)]);
+  const retained = phase === "after" ? [path.join(path.dirname(project), `.ideomy-${journal.id}.tmp`)] : [];
+  expect(recovered?.retainedPaths ?? []).toEqual(retained);
+  expect(readdirSync(path.dirname(file)).sort()).toEqual(
+    [...retained.map((entry) => path.basename(entry)), path.basename(file)].sort(),
+  );
   expect(readdirSync(journalDirectory)).toEqual([`${journal.id}.json`]);
   expect(recoverProjectStatus(scope)).toBeNull();
   expect(commitProjectStatus(scope, change).state).toBe("committed");
@@ -242,6 +285,7 @@ it("holds the claim against both operations in another process and recovers afte
     "TX-BUSY",
   ]);
   const journal = pending();
+  expect(journal.state).toBe("applying");
   expect(readFileSync(file).equals(before)).toBe(true);
   expect(readFileSync(path.join(journalDirectory, `${journal.id}.snapshot`)).equals(before)).toBe(true);
   const lock = path.join(scope.stateDirectory, "transactions.lock");
@@ -287,6 +331,53 @@ it("retains both external versions when an editor also races the compensating ex
   expect(readFileSync(path.join(path.dirname(file), `.ideomy-${journal.id}.tmp`)).equals(second)).toBe(true);
 });
 
+it("remembers the conflict across SIGKILL after compensation when both external hashes match the plan", {
+  timeout: childTimeout + 5_000,
+}, () => {
+  const run = runChild("compensation-crash");
+  expect(run.signal, run.stderr).toBe("SIGKILL");
+  const journal = pending();
+  expect(journal.state).toBe("recovery_required");
+  const slot = path.join(path.dirname(file), `.ideomy-${journal.id}.tmp`);
+  const externalBefore = statSync(file, { bigint: true }).ino;
+  const externalAfter = statSync(slot, { bigint: true }).ino;
+  const proof = statSync(path.join(path.dirname(file), `.ideomy-${journal.id}.candidate`), { bigint: true });
+  expect(externalAfter).not.toBe(proof.ino);
+  expect(readFileSync(file).equals(before)).toBe(true);
+  expect(readFileSync(slot).equals(after)).toBe(true);
+  expect(() => recoverProjectStatus(scope)).toThrowError(expect.objectContaining({ code: "TX-RECOVERY-REQUIRED" }));
+  expectManualRecovery();
+  expect(statSync(file, { bigint: true }).ino).toBe(externalBefore);
+  expect(statSync(slot, { bigint: true }).ino).toBe(externalAfter);
+  expect(readFileSync(file).equals(before)).toBe(true);
+  expect(readFileSync(slot).equals(after)).toBe(true);
+});
+
+it("keeps a late write to the displaced inode after rollback cleanup and editor close", {
+  timeout: childTimeout * 2 + 5_000,
+}, () => {
+  interrupt("after");
+  const journal = pending();
+  const editor = openSync(file, "a");
+  let receipt: ProjectStatusJournal;
+  try {
+    const recovery = runChild("open-editor", editor);
+    expect(recovery.status, recovery.stderr).toBe(0);
+    receipt = JSON.parse(recovery.stdout);
+  } finally {
+    closeSync(editor);
+  }
+  expect(receipt.state).toBe("rolled_back");
+  expect(readFileSync(file).equals(before)).toBe(true);
+  const slot = path.join(path.dirname(file), `.ideomy-${journal.id}.tmp`);
+  const latest = Buffer.concat([after, Buffer.from("Late external write.\r\n")]);
+  expect(readFileSync(slot).equals(latest)).toBe(true);
+  expect(receipt.retainedPaths).toContain(path.relative(scope.vaultRoot, slot));
+  const archived = JSON.parse(readFileSync(path.join(journalDirectory, `${journal.id}.json`), "utf8"));
+  expect(archived).toEqual(receipt);
+  expect(recoverProjectStatus(scope)).toBeNull();
+});
+
 it.each([
   "before",
   "after",
@@ -316,10 +407,12 @@ it("resumes recovery after a second SIGKILL just after the rollback exchange", {
   const run = runChild("recovery-after");
   expect(run.signal, run.stderr).toBe("SIGKILL");
   expect(readFileSync(file).equals(before)).toBe(true);
-  expect(recoverProjectStatus(scope)).toMatchObject({ id, state: "rolled_back" });
+  const retained = path.join(path.dirname(project), `.ideomy-${id}.tmp`);
+  expect(recoverProjectStatus(scope)).toMatchObject({ id, state: "rolled_back", retainedPaths: [retained] });
   expect(readFileSync(file).equals(before)).toBe(true);
+  expect(readFileSync(path.join(scope.vaultRoot, retained)).equals(after)).toBe(true);
   expect(readdirSync(journalDirectory)).toEqual([`${id}.json`]);
-  expect(readdirSync(path.dirname(file))).toEqual([path.basename(file)]);
+  expect(readdirSync(path.dirname(file)).sort()).toEqual([path.basename(retained), path.basename(file)].sort());
 });
 
 it("leaves an external edit after interruption intact and retains the recovery snapshot", {

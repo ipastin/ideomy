@@ -45,6 +45,8 @@ const journalSchema = z.strictObject({
     .string()
     .regex(/^\d+:\d+$/)
     .optional(),
+  rollbackStarted: z.boolean().optional(),
+  retainedPaths: z.array(z.string().min(1)).optional(),
   previousStatus: projectStatus,
   status: projectStatus,
   state: z.enum(["snapshotted", "applying", "validating", "committed", "rolled_back", "recovery_required"]),
@@ -197,7 +199,13 @@ function sameVersion(actual: FileVersion | null, expected: FileVersion): boolean
   return actual?.identity === expected.identity && actual.hash === expected.hash;
 }
 
-function exchangeChecked(file: string, slot: string, current: FileVersion, replacement: FileVersion): void {
+function exchangeChecked(
+  file: string,
+  slot: string,
+  current: FileVersion,
+  replacement: FileVersion,
+  persistConflict: () => void,
+): void {
   if (!sameVersion(version(slot), replacement)) {
     throw new TransactionError("TX-RECOVERY-REQUIRED", "The staged version changed before atomic exchange.");
   }
@@ -208,8 +216,11 @@ function exchangeChecked(file: string, slot: string, current: FileVersion, repla
   const displaced = version(slot);
   const published = version(file);
   if (!sameVersion(displaced, current) || !sameVersion(published, replacement)) {
-    // A compensating exchange also retains anything written since the first exchange.
-    if (displaced && sameVersion(published, replacement)) transactionFs.exchange(file, slot);
+    if (displaced && sameVersion(published, replacement)) {
+      // Recovery must see the conflict even if compensation leaves both planned hashes on disk.
+      persistConflict();
+      transactionFs.exchange(file, slot);
+    }
     throw new TransactionError("TX-RECOVERY-REQUIRED", "A concurrent edit changed the exchanged files.");
   }
 }
@@ -279,8 +290,12 @@ function stagedFiles(vault: string, relative: string, id: string) {
   };
 }
 
-function requireManualRecovery(transaction: ReturnType<typeof files>, journal: ProjectStatusJournal, cause: unknown) {
+function recordRecoveryRequired(transaction: ReturnType<typeof files>, journal: ProjectStatusJournal): void {
   saveJournal(transaction.journal, { ...journal, state: "recovery_required" });
+}
+
+function requireManualRecovery(transaction: ReturnType<typeof files>, journal: ProjectStatusJournal, cause: unknown) {
+  recordRecoveryRequired(transaction, journal);
   return new TransactionError("TX-RECOVERY-REQUIRED", "The Project transaction needs manual recovery.", { cause });
 }
 
@@ -290,11 +305,20 @@ function finishTerminal(
   journal: ProjectStatusJournal,
 ): ProjectStatusJournal {
   const staged = stagedFiles(paths.vault, journal.path, journal.id);
+  const committed = journal.state === "committed";
+  let slot: FileVersion | null;
+  let proof: FileVersion | null;
   try {
-    const slot = version(staged.slot);
-    const proof = version(staged.proof);
-    const discardHash = journal.state === "committed" ? journal.beforeHash : journal.afterHash;
-    if (slot && slot.hash !== discardHash) throw new Error("The staged file contains unrecognized bytes.");
+    slot = version(staged.slot);
+    proof = version(staged.proof);
+    const expectedSlotHash = committed ? journal.beforeHash : journal.afterHash;
+    if (
+      slot &&
+      (slot.hash !== expectedSlotHash ||
+        (!committed && journal.candidateIdentity && slot.identity !== journal.candidateIdentity))
+    ) {
+      throw new Error("The staged file contains an unrecognized version.");
+    }
     if (
       proof &&
       (proof.hash !== journal.afterHash || (journal.candidateIdentity && proof.identity !== journal.candidateIdentity))
@@ -304,8 +328,20 @@ function finishTerminal(
   } catch (error) {
     throw requireManualRecovery(transaction, journal, error);
   }
-  rmSync(staged.slot, { force: true });
-  rmSync(staged.proof, { force: true });
+  const mayHaveBeenPublished =
+    committed || (journal.candidateIdentity !== undefined && (journal.rollbackStarted !== false || !slot));
+  const keepSlot = mayHaveBeenPublished && slot !== null;
+  const keepProof = mayHaveBeenPublished && proof !== null && proof.identity !== slot?.identity;
+  const retained = [keepSlot ? staged.slot : null, keepProof ? staged.proof : null].filter((file) => file !== null);
+  if (retained.length) {
+    // Keep a name on the Vault filesystem for each inode that an editor may still have open.
+    journal = saveJournal(transaction.journal, {
+      ...journal,
+      retainedPaths: retained.map((file) => path.relative(paths.vault, file)),
+    });
+  }
+  if (!keepSlot) rmSync(staged.slot, { force: true });
+  if (!keepProof) rmSync(staged.proof, { force: true });
   syncDirectory(path.dirname(staged.slot));
   finish(paths.active, transaction);
   return journal;
@@ -358,13 +394,19 @@ function commitLocked(paths: StatePaths, scope: TransactionScope, change: Projec
   // Pin the staged inode so a later external file cannot reuse its identity.
   linkSync(staged.slot, staged.proof);
   syncDirectory(path.dirname(file));
-  const journal = saveJournal(transaction.journal, { ...snapshotted, candidateIdentity, state: "applying" });
+  const journal = saveJournal(transaction.journal, {
+    ...snapshotted,
+    candidateIdentity,
+    rollbackStarted: false,
+    state: "applying",
+  });
   try {
     exchangeChecked(
       file,
       staged.slot,
       { identity: current.identity, hash: journal.beforeHash },
       { identity: candidateIdentity, hash: journal.afterHash },
+      () => recordRecoveryRequired(transaction, journal),
     );
   } catch (error) {
     if (error instanceof TransactionError && error.code === "TX-CONFLICT") {
@@ -404,7 +446,7 @@ function recoverLocked(paths: StatePaths, scope: TransactionScope): ProjectStatu
   const pending = readState(active, pendingSchema);
   if (!pending) return null;
   const transaction = files(directory, pending.id);
-  const journal = readState(transaction.journal, journalSchema);
+  let journal = readState(transaction.journal, journalSchema);
   if (!journal) {
     // The first journal record is made durable before staging any Vault bytes.
     finish(active, transaction);
@@ -443,7 +485,9 @@ function recoverLocked(paths: StatePaths, scope: TransactionScope): ProjectStatu
       ) {
         throw new TransactionError("TX-RECOVERY-REQUIRED", "Recovery snapshot does not contain the original Project.");
       }
-      exchangeChecked(file, staged.slot, candidate, displaced);
+      const rollingBack = saveJournal(transaction.journal, { ...journal, rollbackStarted: true });
+      journal = rollingBack;
+      exchangeChecked(file, staged.slot, candidate, displaced, () => recordRecoveryRequired(transaction, rollingBack));
     }
   } catch (error) {
     throw requireManualRecovery(transaction, journal, error);
