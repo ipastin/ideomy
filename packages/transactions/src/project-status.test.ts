@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import {
   closeSync,
+  existsSync,
   mkdirSync,
   mkdtempSync,
   openSync,
@@ -233,6 +234,14 @@ it("rejects a stale SHA-256 after an external Markdown edit", () => {
   expect(() => commitProjectStatus(scope, change)).toThrowError(expect.objectContaining({ code: "TX-CONFLICT" }));
   expect(readFileSync(file).equals(external)).toBe(true);
   expect(readdirSync(journalDirectory)).toEqual([]);
+});
+
+it("rejects a mismatched bound Vault before claiming transaction state", () => {
+  const mismatched = { ...scope, vaultFingerprint: "0".repeat(64) };
+  expect(() => recoverProjectStatus(mismatched)).toThrowError(expect.objectContaining({ code: "TX-INVALID" }));
+  expect(() => commitProjectStatus(mismatched, change)).toThrowError(expect.objectContaining({ code: "TX-INVALID" }));
+  expect(existsSync(path.join(scope.stateDirectory, "transactions.lock"))).toBe(false);
+  expect(readFileSync(file)).toEqual(before);
 });
 
 it("rechecks the source hash after staging and preserves an external edit before rename", {

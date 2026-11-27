@@ -56,18 +56,19 @@ export type ProjectStatusJournal = z.infer<typeof journalSchema>;
 export type TransactionScope = {
   vaultRoot: string;
   vaultId: string;
+  vaultFingerprint?: string;
   stateDirectory: string;
   propertyMapping?: Record<string, string>;
 };
 export type ProjectStatusChange = { projectId: string; status: string; expectedHash: string };
+type TransactionErrorCode = "TX-BUSY" | "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED";
 export class TransactionError extends Error {
-  constructor(
-    readonly code: "TX-BUSY" | "TX-CONFLICT" | "TX-INVALID" | "TX-RECOVERY-REQUIRED",
-    message: string,
-    options?: ErrorOptions,
-  ) {
+  readonly code: TransactionErrorCode;
+
+  constructor(code: TransactionErrorCode, message: string, options?: ErrorOptions) {
     super(message, options);
     this.name = "TransactionError";
+    this.code = code;
   }
 }
 
@@ -130,6 +131,9 @@ function withStateLock<T>(scope: TransactionScope, run: (paths: StatePaths) => T
   const state = realpathSync(scope.stateDirectory);
   if (!scope.vaultId) throw new TransactionError("TX-INVALID", "Vault identity is required.");
   const fingerprint = deriveVaultFingerprint(vault, scope.vaultId);
+  if (scope.vaultFingerprint !== undefined && scope.vaultFingerprint !== fingerprint) {
+    throw new TransactionError("TX-INVALID", "The transaction Vault does not match the bound identity.");
+  }
   const parent = path.join(state, "transactions");
   const directory = path.join(parent, fingerprint);
   if (isWithin(vault, state) || isWithin(vault, directory)) {

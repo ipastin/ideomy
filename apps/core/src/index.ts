@@ -7,6 +7,7 @@ import {
   mkdirSync,
   openSync,
   readFileSync,
+  realpathSync,
   renameSync,
   unlinkSync,
   watch,
@@ -18,6 +19,15 @@ import { Worker } from "node:worker_threads";
 import { type CoreDiscovery, protocolSchemas } from "@ideomy/contracts";
 import { indexFilename } from "@ideomy/index";
 import { readCliAdminSecret, readMachineLocalFile } from "@ideomy/platform";
+import {
+  commitProjectStatus,
+  type ProjectStatusChange,
+  type ProjectStatusJournal,
+  recoverProjectStatus,
+  TransactionError,
+  type TransactionScope,
+} from "@ideomy/transactions";
+import { deriveVaultFingerprint } from "@ideomy/vault-io";
 import { type inspectVault, synchronizeVaultIndex } from "./vault-health.ts";
 
 type ClientType = "plugin" | "cli";
@@ -47,6 +57,7 @@ export type CoreOptions = {
 
 export type RunningCore = {
   discovery: CoreDiscovery;
+  commitProjectStatus(change: ProjectStatusChange): ProjectStatusJournal;
   revokeSession(token: string): void;
   close(): Promise<void>;
 };
@@ -145,6 +156,25 @@ async function jsonBody(request: IncomingMessage): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
+function boundTransactionScope(options: CoreOptions): TransactionScope | undefined {
+  if (!options.vaultPath) return;
+  try {
+    const vaultRoot = realpathSync(options.vaultPath);
+    if (!lstatSync(vaultRoot).isDirectory()) return;
+    if (deriveVaultFingerprint(vaultRoot, options.vaultId) !== options.vaultFingerprint) return;
+    return {
+      vaultRoot,
+      vaultId: options.vaultId,
+      vaultFingerprint: options.vaultFingerprint,
+      stateDirectory: options.stateDirectory,
+      ...(options.propertyMapping ? { propertyMapping: options.propertyMapping } : {}),
+    };
+  } catch {
+    // Keep Vault health available when the configured path cannot be verified.
+    return;
+  }
+}
+
 export async function startCore(options: CoreOptions): Promise<RunningCore> {
   if (!options.vaultId || !options.vaultFingerprint) throw new Error("Vault identity is required.");
   privateStateDirectory(options.stateDirectory);
@@ -170,6 +200,16 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
     }),
   );
   const clients = readPairedClients(options.stateDirectory);
+  const transactions = boundTransactionScope(options);
+  let recoveryRequired = false;
+  if (transactions) {
+    try {
+      recoverProjectStatus(transactions);
+    } catch (error) {
+      if (!(error instanceof TransactionError) || error.code !== "TX-RECOVERY-REQUIRED") throw error;
+      recoveryRequired = true;
+    }
+  }
   let onVaultChange = () => {};
   let vaultWatcher: FSWatcher | undefined;
   let watchFailed = false;
@@ -534,13 +574,14 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
       }
       if (request.method === "GET" && route === "/v1/system-health") {
         const vault = vaultHealth;
+        const diagnostics = recoveryRequired ? [...vault.diagnostics, "TX-RECOVERY-REQUIRED"] : vault.diagnostics;
         send(
           response,
           200,
           protocolSchemas.status.parse({
             status:
-              vault.schema === "valid" && vault.index === "current"
-                ? vault.diagnostics.length
+              !recoveryRequired && vault.schema === "valid" && vault.index === "current"
+                ? diagnostics.length
                   ? "attention"
                   : "healthy"
                 : "degraded",
@@ -565,7 +606,7 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
               ),
             },
             vault: { status: vault.vault, vault_id: options.vaultId },
-            schema: { status: vault.schema, diagnostics: vault.diagnostics, verified_at: verifiedAt },
+            schema: { status: vault.schema, diagnostics, verified_at: verifiedAt },
             index: { status: vault.index, verified_at: verifiedAt },
           }),
         );
@@ -604,6 +645,18 @@ async function startLockedCore(options: CoreOptions, releaseState: () => void): 
   }
   return {
     discovery,
+    commitProjectStatus(change) {
+      if (closed || !transactions) throw new TransactionError("TX-INVALID", "No verified writable Vault is available.");
+      if (recoveryRequired) {
+        throw new TransactionError("TX-RECOVERY-REQUIRED", "Resolve the pending Vault transaction before writing.");
+      }
+      try {
+        return commitProjectStatus(transactions, change);
+      } catch (error) {
+        if (error instanceof TransactionError && error.code === "TX-RECOVERY-REQUIRED") recoveryRequired = true;
+        throw error;
+      }
+    },
     revokeSession(token) {
       sessions.delete(tokenHash(token));
     },
