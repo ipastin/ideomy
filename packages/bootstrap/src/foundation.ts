@@ -141,6 +141,7 @@ function coreArtifactHash(entrypoint: string): string {
     "packages/platform",
     "packages/schema",
     "packages/index",
+    "packages/transactions",
     "packages/vault-io",
   ];
   const files = [path.join(workspace, "pnpm-lock.yaml")];

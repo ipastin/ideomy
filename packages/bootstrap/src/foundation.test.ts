@@ -172,6 +172,7 @@ describe("Bootstrap Foundation", () => {
       "packages/platform",
       "packages/schema",
       "packages/index",
+      "packages/transactions",
       "packages/vault-io",
     ]) {
       const directory = path.join(workspace, name);
@@ -186,7 +187,7 @@ describe("Bootstrap Foundation", () => {
     f.dependencies.coreEntrypoint = entrypoint;
     expect((await setupFoundation({ ...options, vault: f.vault }, f.dependencies)).ok).toBe(true);
     expect((await doctorFoundation(f.dependencies)).ok).toBe(true);
-    const imported = path.join(workspace, "packages/platform/src/index.ts");
+    const imported = path.join(workspace, "packages/transactions/src/index.ts");
     writeFileSync(imported, "export const synthetic = false;\n");
     expect(readFileSync(entrypoint, "utf8")).toBe(entry);
     expect((await doctorFoundation(f.dependencies)).diagnostics[0]?.code).toBe("CORE-002");

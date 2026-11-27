@@ -13,6 +13,7 @@
     "@ideomy/contracts": "workspace:*",
     "@ideomy/index": "workspace:*",
     "@ideomy/platform": "workspace:*",
+    "@ideomy/transactions": "workspace:*",
     "@ideomy/vault-io": "workspace:*"
   }
 }

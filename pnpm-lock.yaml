@@ -232,6 +232,9 @@ importers:
       '@ideomy/platform':
         specifier: workspace:*
         version: link:../../packages/platform
+      '@ideomy/transactions':
+        specifier: workspace:*
+        version: link:../../packages/transactions
       '@ideomy/vault-io':
         specifier: workspace:*
         version: link:../../packages/vault-io
