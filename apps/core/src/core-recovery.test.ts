@@ -108,7 +108,7 @@ async function crashAndRepair(phase: "before" | "after") {
   return active.id;
 }
 
-async function systemHealth(core: RunningCore) {
+async function connectCore(core: RunningCore) {
   const client = new CoreClient(() => core.discovery);
   await client.connectCli(
     {
@@ -119,7 +119,7 @@ async function systemHealth(core: RunningCore) {
     },
     readCliAdminSecret(profile.stateDirectory),
   );
-  return client.systemHealth();
+  return client;
 }
 
 it.each(["before", "after"] as const)("recovers on startup after SIGKILL %s the exchange", crashTest, async (phase) => {
@@ -131,7 +131,13 @@ it.each(["before", "after"] as const)("recovers on startup after SIGKILL %s the 
     expect(existsSync(stateFile("active.json"))).toBe(false);
     const index = JSON.parse(readFileSync(path.join(profile.stateDirectory, "bootstrap-index.json"), "utf8"));
     expect(index.notes).toContainEqual(expect.objectContaining({ path: project, hash: change.expectedHash }));
-    expect(await systemHealth(core)).toMatchObject({ status: "healthy", index: { status: "current" } });
+    const client = await connectCore(core);
+    await expect
+      .poll(() => client.systemHealth(), { timeout: 10_000 })
+      .toMatchObject({
+        status: "healthy",
+        index: { status: "current" },
+      });
 
     expect(() => lifecycle.repairStaleLock()).toThrow("live or unverified Core lock");
     expect(readFileSync(lock, "utf8")).toBe(String(process.pid));
@@ -154,11 +160,11 @@ it(
       expect(journal(id).state).toBe(state);
       const core = await startCore(profile);
       try {
-        expect(await systemHealth(core)).toMatchObject({
+        const client = await connectCore(core);
+        expect(await client.systemHealth()).toMatchObject({
           status: "degraded",
           core: { status: "ready" },
-          schema: { status: "valid", diagnostics: ["TX-RECOVERY-REQUIRED"] },
-          index: { status: "current" },
+          schema: { diagnostics: ["TX-RECOVERY-REQUIRED"] },
         });
         expect(() =>
           core.commitProjectStatus({ ...change, status: "completed", expectedHash: hashRaw(external) }),
@@ -167,6 +173,13 @@ it(
         expect(existsSync(stateFile("active.json"))).toBe(true);
         expect(readFileSync(stateFile(`${id}.snapshot`))).toEqual(original);
         expect(readFileSync(file)).toEqual(external);
+        await expect
+          .poll(() => client.systemHealth(), { timeout: 10_000 })
+          .toMatchObject({
+            status: "degraded",
+            schema: { status: "valid", diagnostics: ["TX-RECOVERY-REQUIRED"] },
+            index: { status: "current" },
+          });
       } finally {
         await core.close();
       }
@@ -181,7 +194,8 @@ it("does not recover or write through a Vault path with a different fingerprint"
   profile.vaultFingerprint = deriveVaultFingerprint(otherVault, profile.vaultId);
   const core = await startCore(profile);
   try {
-    expect(await systemHealth(core)).toMatchObject({ vault: { status: "mismatch" } });
+    const client = await connectCore(core);
+    expect(await client.systemHealth()).toMatchObject({ vault: { status: "mismatch" } });
     expect(() => core.commitProjectStatus(change)).toThrowError(expect.objectContaining({ code: "TX-INVALID" }));
     expect(journal(id).state).toBe("applying");
     expect(readFileSync(file)).toEqual(applied);
